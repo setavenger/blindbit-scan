@@ -9,3 +9,7 @@ import (
 func (s *Server) GetCurrentHeight(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"height": s.Daemon.Wallet.LastScanHeight})
 }
+
+func (s *Server) GetUtxos(c *gin.Context) {
+	c.JSON(http.StatusOK, s.Daemon.Wallet.UTXOs)
+}

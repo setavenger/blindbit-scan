@@ -20,5 +20,6 @@ type Server struct {
 func (s *Server) RunServer() error {
 	router := gin.New()
 	router.GET("/height", s.GetCurrentHeight)
+	router.GET("/utxos", s.GetUtxos)
 	return router.Run(config.ExposeHttpHost)
 }

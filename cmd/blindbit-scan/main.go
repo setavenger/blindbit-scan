@@ -21,7 +21,8 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt)
 
 	config.SetupConfigs(config.DirectoryPath)
-	d, err := daemon.SetupDaemon(config.DirectoryPath)
+
+	d, err := daemon.SetupDaemon(config.PathDbWallet)
 	if err != nil {
 		panic(err)
 	}

@@ -16,8 +16,8 @@ type UTXOState int8
 const (
 	StateUnconfirmed UTXOState = iota + 1
 	StateUnspent
-	StateSpent
 	StateUnconfirmedSpent
+	StateSpent
 )
 
 func (u UTXOState) String() string {
@@ -28,19 +28,61 @@ func (u UTXOState) Index() int {
 	return int(u)
 }
 
-func (u UTXOState) MarshalJSON() ([]byte, error) {
-	return []byte(u.String()), nil
-}
+// func (u UTXOState) MarshalJSON() ([]byte, error) {
+// 	val := u.String()
+// 	log.Println(val)
+// 	log.Printf("%+v\n", val)
+// 	return []byte(val), nil
+// }
 
 type OwnedUTXO struct {
-	Txid         [32]byte      `json:"txid,omitempty"`
-	Vout         uint32        `json:"vout,omitempty"`
+	Txid         [32]byte      `json:"txid"`
+	Vout         uint32        `json:"vout"`
 	Amount       uint64        `json:"amount"`
-	PrivKeyTweak [32]byte      `json:"priv_key_tweak,omitempty"`
-	PubKey       [32]byte      `json:"pub_key,omitempty"`
-	Timestamp    uint64        `json:"timestamp,omitempty"`
-	State        UTXOState     `json:"utxo_state,omitempty"`
+	PrivKeyTweak [32]byte      `json:"priv_key_tweak"`
+	PubKey       [32]byte      `json:"pub_key"`
+	Timestamp    uint64        `json:"timestamp"`
+	State        UTXOState     `json:"utxo_state"`
 	Label        *bip352.Label `json:"label"` // the pubKey associated with the label
+}
+
+// create alias for hashes basically what btcsuite has. Better for conversion in json to hex etc.
+type OwnedUtxoJSON struct {
+	Txid         string          `json:"txid"`
+	Vout         uint32          `json:"vout"`
+	Amount       uint64          `json:"amount"`
+	PrivKeyTweak string          `json:"priv_key_tweak"`
+	PubKey       string          `json:"pub_key"`
+	Timestamp    uint64          `json:"timestamp"`
+	State        UTXOState       `json:"utxo_state"`
+	Label        Bip352LabelJSON `json:"label"` // the pubKey associated with the label
+}
+
+type Bip352LabelJSON struct {
+	PubKey  string `json:"pub_key"`
+	Tweak   string `json:"tweak"`
+	Address string `json:"address"`
+	M       uint32 `json:"m"`
+}
+
+func (s OwnedUTXO) MarshalJSON() ([]byte, error) {
+	newUtxo := OwnedUtxoJSON{
+		Txid:         hex.EncodeToString(s.Txid[:]),
+		Vout:         s.Vout,
+		Amount:       s.Amount,
+		PrivKeyTweak: hex.EncodeToString(s.PrivKeyTweak[:]),
+		PubKey:       hex.EncodeToString(s.PubKey[:]),
+		Timestamp:    s.Timestamp,
+		State:        s.State,
+		Label: Bip352LabelJSON{
+			PubKey:  hex.EncodeToString(s.Label.PubKey[:]),
+			Tweak:   hex.EncodeToString(s.Label.Tweak[:]),
+			Address: s.Label.Address,
+			M:       s.Label.M,
+		},
+	}
+
+	return json.Marshal(newUtxo)
 }
 
 func (u OwnedUTXO) SerialiseToOutpoint() ([36]byte, error) {

@@ -6,7 +6,7 @@ import (
 
 	"github.com/setavenger/blindbit-scan/internal/config"
 	"github.com/setavenger/blindbit-scan/internal/wallet"
-	"github.com/setavenger/blindbitd/src/networking" // todo move all blindbitd/src/*
+	"github.com/setavenger/blindbit-scan/pkg/networking" // todo move all blindbitd/src/*
 	"github.com/setavenger/go-electrum/electrum"
 )
 
@@ -27,7 +27,7 @@ func SetupDaemon(path string) (*Daemon, error) {
 
 	if config.UseElectrum {
 		log.Println("connecting to Electrum server")
-		clientElectrum, err = networking.CreateElectrumClient()
+		clientElectrum, err = networking.CreateElectrumClient(config.ElectrumServerAddress, config.ElectrumTorProxyHost)
 		if err != nil {
 			log.Println(err)
 			return nil, err

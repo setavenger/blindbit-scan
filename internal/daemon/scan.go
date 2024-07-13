@@ -14,9 +14,9 @@ import (
 	"github.com/setavenger/blindbit-scan/internal/config"
 	"github.com/setavenger/blindbit-scan/internal/wallet"
 	"github.com/setavenger/blindbit-scan/pkg/database"
+	"github.com/setavenger/blindbit-scan/pkg/networking"
 	"github.com/setavenger/blindbit-scan/pkg/utils"
 	"github.com/setavenger/blindbitd/src" // todo move blindbitd/src to a pkg for all blindbit programs
-	"github.com/setavenger/blindbitd/src/networking"
 	"github.com/setavenger/go-bip352"
 )
 
@@ -235,6 +235,7 @@ func (d *Daemon) SyncToTip(chainTip uint64) error {
 }
 
 func (d *Daemon) ContinuousScan() error {
+	d.SyncToTip(0)
 	for {
 		select {
 		case newBlock := <-d.NewBlockChan:

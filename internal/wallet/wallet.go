@@ -53,6 +53,7 @@ func SetupWallet(
 		PubKeySpend:    pubKeySpend,
 		BirthHeight:    birthHeight,
 		LastScanHeight: lastScanHeight,
+		Labels:         LabelMap{},
 		UTXOMapping:    UTXOMapping{},
 	}
 
