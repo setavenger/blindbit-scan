@@ -9,19 +9,20 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/setavenger/blindbit-scan/internal"
 	"github.com/setavenger/blindbit-scan/internal/config"
+	"github.com/setavenger/blindbit-scan/pkg/types"
 	"github.com/setavenger/blindbitd/src"
 	"github.com/setavenger/go-bip352"
 )
 
 type Wallet struct {
-	secretKeyScan  [32]byte
-	PubKeyScan     [33]byte       `json:"pub_key_scan"`
-	PubKeySpend    [33]byte       `json:"pub_key_spend"`
-	BirthHeight    uint64         `json:"birth_height,omitempty"`
-	LastScanHeight uint64         `json:"last_scan,omitempty"`
-	UTXOs          UtxoCollection `json:"utxos,omitempty"`
-	Labels         LabelMap       `json:"labels"`       // Labels contains all labels except for the change label
-	UTXOMapping    UTXOMapping    `json:"utxo_mapping"` // used to keep track of utxos and not add the same twice
+	SecretKeyScan  types.SecretKey `json:"sec_key_scan"`
+	PubKeyScan     types.PublicKey `json:"pub_key_scan"`
+	PubKeySpend    types.PublicKey `json:"pub_key_spend"`
+	BirthHeight    uint64          `json:"birth_height,omitempty"`
+	LastScanHeight uint64          `json:"last_scan,omitempty"`
+	UTXOs          UtxoCollection  `json:"utxos,omitempty"`
+	Labels         LabelMap        `json:"labels"`       // Labels contains all labels except for the change label
+	UTXOMapping    UTXOMapping     `json:"utxo_mapping"` // used to keep track of utxos and not add the same twice
 }
 
 // This function is to create a new instance of a wallet.
@@ -48,7 +49,7 @@ func SetupWallet(
 	_, pubKeyScan := btcec.PrivKeyFromBytes(secretKeyScan[:])
 
 	wallet = &Wallet{
-		secretKeyScan:  secretKeyScan,
+		SecretKeyScan:  secretKeyScan,
 		PubKeyScan:     bip352.ConvertToFixedLength33(pubKeyScan.SerializeCompressed()),
 		PubKeySpend:    pubKeySpend,
 		BirthHeight:    birthHeight,
@@ -57,7 +58,8 @@ func SetupWallet(
 		UTXOMapping:    UTXOMapping{},
 	}
 
-	for i := 0; i < labelCount; i++ {
+	// the user specifies the number of labels they have. So +1. Change label is m = 0
+	for i := 0; i < labelCount+1; i++ {
 		err = wallet.generateNextLabel()
 		if err != nil {
 			log.Println(err)
@@ -65,10 +67,6 @@ func SetupWallet(
 		}
 	}
 	return wallet, err
-}
-
-func (w *Wallet) SecretKeyScan() [32]byte {
-	return w.secretKeyScan
 }
 
 func (w *Wallet) Serialise() ([]byte, error) {
@@ -107,7 +105,7 @@ func (w *Wallet) generateNextLabel() error {
 	}
 
 	// we set the next m according to the length/ number of items in the labels map
-	label, err := bip352.CreateLabel(w.secretKeyScan, uint32(len(w.Labels)))
+	label, err := bip352.CreateLabel(w.SecretKeyScan, uint32(len(w.Labels)))
 	if err != nil {
 		return err
 	}
@@ -186,4 +184,17 @@ func (w *Wallet) GetFreeUTXOs(includeSpentUnconfirmed bool) UtxoCollection {
 		}
 	}
 	return utxos
+}
+
+func (w *Wallet) GenerateAddress() (string, error) {
+	var mainnet bool
+	if config.ChainParams.Name == chaincfg.MainNetParams.Name {
+		mainnet = true
+	}
+	address, err := bip352.CreateAddress(w.PubKeyScan, w.PubKeySpend, mainnet, 0)
+	if err != nil {
+		log.Println(err)
+		return "", err
+	}
+	return address, err
 }

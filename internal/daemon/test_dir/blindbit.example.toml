@@ -1,8 +1,7 @@
 [network]
 
 # Expose your server here to query the scanner for your utxos
-# Default: 127.0.0.1:8080
-expose_http = "localhost:8888"
+expose_http = "http://localhost:8888"
 
 # Indexing server for silent payments that follows the blindbit standard
 # Default: "http://localhost:8000"
@@ -12,6 +11,7 @@ blindbit_server = "http://localhost:8000"
 # Keep this empty to not use electrum at all. 
 # UTXO states will be set to spent or unspent and spent_unconfirmed will only be tracked locally in one daemon instance.
 # Using a public or not trusted Electrum server will leak privacy.
+# Default: "localhost:50000"
 electrum_server = "localhost:50000"
 
 # Should the electrum server be accessed via tor
@@ -29,20 +29,23 @@ chain = "signet"
 
 [wallet]
 
-# Your public spend key <33-byte compressed>
+# <33-byte compressed public key>
 spend_pub_key = "02fb291507cb77ad2349782409c5d5cd6c0ff2052ddcac0c509ac2d434c8f641c8"
 
 # The secret scan key. THis key is needed to find transactions where you receive funds. Sending is not possible using this key.
 # <32-byte secret/private key>
 scan_secret_key = "d6e87e971e898d79077d15c26f9988f3786cda4f8b267eb9d181fa8899b2ddc9"
 
+# The wallet will never create change that is smaller than this value. Value has to be in sats.
+# Default: 1000
+minchange_amount = 1000
+
 # The wallet will only request tweaks for transactions where the utxo with the largest value exceeds the `dust_limit` value.
 # Note that if you receive funds below this threshold you might not find them. Rescan without a dustlimit to find those.
 # default = 1000
 dust_limit = 1000
 
-# The number of labels that should be checked during scanning. For now this number has to be defined here and can't be changed at runtime. 
-# NOTE: Setting this number higher than necessary comes with a lot of computational costs. The scan times increase a lot when scaling labels. Test it and reduce if needed.
+# The number of labels that should be checked from the get go. For now this number has to be defined here and can't be changed at runtime. Setting this number higher than necessary is recommended to avoid frequent reloading of the program.
 label_count = 21
 
 # when the wallet was created. The scanner will not scan anything from before that blockheight
