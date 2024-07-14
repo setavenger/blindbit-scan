@@ -45,7 +45,7 @@ func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
 
 	for _, tweak := range tweaks {
 		var sharedSecret [33]byte
-		sharedSecret, err = bip352.CreateSharedSecret(tweak, d.Wallet.SecretKeyScan(), nil)
+		sharedSecret, err = bip352.CreateSharedSecret(tweak, d.Wallet.SecretKeyScan, nil)
 		if err != nil {
 			log.Println(err)
 			return nil, err
@@ -129,7 +129,7 @@ func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
 
 	for _, tweak := range tweaks {
 		var foundOutputsPerTweak []*bip352.FoundOutput
-		foundOutputsPerTweak, err = bip352.ReceiverScanTransaction(d.Wallet.SecretKeyScan(), d.Wallet.PubKeySpend, labelsToCheck, blockOutputs, tweak, nil)
+		foundOutputsPerTweak, err = bip352.ReceiverScanTransaction(d.Wallet.SecretKeyScan, d.Wallet.PubKeySpend, labelsToCheck, blockOutputs, tweak, nil)
 		if err != nil {
 			log.Println(err)
 			return nil, err
@@ -184,7 +184,7 @@ func (d *Daemon) SyncToTip(chainTip uint64) error {
 	log.Println("Tip:", chainTip)
 	// todo find fixed points for mainnet/signet/testnet where startHeight can start from. Avoid scanning through non SP merged blocks
 	var startHeight = d.Wallet.BirthHeight
-	if d.Wallet.LastScanHeight > startHeight {
+	if d.Wallet.LastScanHeight >= startHeight {
 		startHeight = d.Wallet.LastScanHeight + 1
 	}
 
@@ -198,7 +198,7 @@ func (d *Daemon) SyncToTip(chainTip uint64) error {
 	}
 
 	for i := startHeight; i < chainTip+1; i++ {
-		go d.MarkSpentUTXOs(i)
+		d.MarkSpentUTXOs(i) // this can probably be omitted if electrum is used
 		// possible logging here to indicate to the user
 		log.Println("syncing:", i)
 		var ownedUTXOs []*wallet.OwnedUTXO
@@ -209,6 +209,14 @@ func (d *Daemon) SyncToTip(chainTip uint64) error {
 		}
 		if ownedUTXOs == nil {
 			d.Wallet.LastScanHeight = i
+			if i%100 == 0 {
+				// do some writes anyways to save the last state of the scan height
+				err = database.WriteToDB(config.PathDbWallet, d.Wallet)
+				if err != nil {
+					log.Println(err)
+					return err
+				}
+			}
 			continue
 		}
 		err = d.Wallet.AddUTXOs(ownedUTXOs)
@@ -216,6 +224,7 @@ func (d *Daemon) SyncToTip(chainTip uint64) error {
 			log.Println(err)
 			return err
 		}
+		log.Println("Added UTXOs to wallet")
 		d.Wallet.LastScanHeight = i
 
 		// todo: database should be an interface to allow other forms of storing data.
@@ -374,7 +383,7 @@ func (d *Daemon) ForceSyncFrom(fromHeight uint64) error {
 	}
 
 	for i := fromHeight; i < chainTip+1; i++ {
-		go d.MarkSpentUTXOs(i)
+		d.MarkSpentUTXOs(i) // this can probably be omitted if electrum is used
 		// possible logging here to indicate to the user
 		log.Println("syncing:", i)
 		var ownedUTXOs []*wallet.OwnedUTXO
@@ -385,6 +394,14 @@ func (d *Daemon) ForceSyncFrom(fromHeight uint64) error {
 		}
 		if ownedUTXOs == nil {
 			d.Wallet.LastScanHeight = i
+			if i%100 == 0 {
+				// do some writes anyways to save the last state of the scan height
+				err = database.WriteToDB(config.PathDbWallet, d.Wallet)
+				if err != nil {
+					log.Println(err)
+					return err
+				}
+			}
 			continue
 		}
 		err = d.Wallet.AddUTXOs(ownedUTXOs)

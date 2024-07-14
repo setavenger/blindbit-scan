@@ -13,3 +13,13 @@ func (s *Server) GetCurrentHeight(c *gin.Context) {
 func (s *Server) GetUtxos(c *gin.Context) {
 	c.JSON(http.StatusOK, s.Daemon.Wallet.UTXOs)
 }
+
+func (s *Server) GetAddress(c *gin.Context) {
+	address, err := s.Daemon.Wallet.GenerateAddress()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"err": err.Error()})
+		c.Abort()
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"address": address})
+}

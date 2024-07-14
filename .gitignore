@@ -1,7 +1,3 @@
-/.idea
-/.run
-/.blindbit
-/test-wallet/
-/wallet*/
-/bin/
-/.wallets/
+.idea
+internal/daemon/test_dir/blindbit.toml
+bin/blindbit-scan

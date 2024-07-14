@@ -8,6 +8,7 @@ import (
 	"github.com/setavenger/blindbit-scan/internal/config"
 	"github.com/setavenger/blindbit-scan/internal/daemon"
 	"github.com/setavenger/blindbit-scan/internal/server"
+	"github.com/setavenger/blindbit-scan/pkg/database"
 )
 
 func init() {
@@ -26,6 +27,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	// when we exit we still flush the last state
+	defer database.WriteToDB(config.PathDbWallet, d.Wallet)
 
 	go func() {
 		go d.ContinuousScan()

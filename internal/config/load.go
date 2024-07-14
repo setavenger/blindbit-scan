@@ -26,6 +26,7 @@ func LoadConfigs(pathToConfig string) error {
 
 	/* set defaults */
 	// network
+	viper.SetDefault("network.expose_http", "127.0.0.1:8080")
 	viper.SetDefault("network.blindbit_server", "http://localhost:8000")
 	viper.SetDefault("network.electrum_server", "") // we set this to empty
 	viper.SetDefault("network.chain", "signet")
@@ -57,7 +58,6 @@ func LoadConfigs(pathToConfig string) error {
 		AutomaticScanInterval = 1 * time.Minute
 	}
 
-	MinChangeAmount = viper.GetInt64("wallet.minchange_amount")
 	DustLimit = viper.GetUint64("wallet.dust_limit")
 
 	// load keys

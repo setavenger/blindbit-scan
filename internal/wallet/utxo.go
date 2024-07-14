@@ -40,7 +40,7 @@ type OwnedUTXO struct {
 	Vout         uint32        `json:"vout"`
 	Amount       uint64        `json:"amount"`
 	PrivKeyTweak [32]byte      `json:"priv_key_tweak"`
-	PubKey       [32]byte      `json:"pub_key"`
+	PubKey       [32]byte      `json:"pub_key"` // are always even hence we omit the parity byte
 	Timestamp    uint64        `json:"timestamp"`
 	State        UTXOState     `json:"utxo_state"`
 	Label        *bip352.Label `json:"label"` // the pubKey associated with the label
@@ -48,14 +48,14 @@ type OwnedUTXO struct {
 
 // create alias for hashes basically what btcsuite has. Better for conversion in json to hex etc.
 type OwnedUtxoJSON struct {
-	Txid         string          `json:"txid"`
-	Vout         uint32          `json:"vout"`
-	Amount       uint64          `json:"amount"`
-	PrivKeyTweak string          `json:"priv_key_tweak"`
-	PubKey       string          `json:"pub_key"`
-	Timestamp    uint64          `json:"timestamp"`
-	State        UTXOState       `json:"utxo_state"`
-	Label        Bip352LabelJSON `json:"label"` // the pubKey associated with the label
+	Txid         string           `json:"txid"`
+	Vout         uint32           `json:"vout"`
+	Amount       uint64           `json:"amount"`
+	PrivKeyTweak string           `json:"priv_key_tweak"`
+	PubKey       string           `json:"pub_key"`
+	Timestamp    uint64           `json:"timestamp"`
+	State        UTXOState        `json:"utxo_state"`
+	Label        *Bip352LabelJSON `json:"label"` // the pubKey associated with the label
 }
 
 type Bip352LabelJSON struct {
@@ -65,24 +65,97 @@ type Bip352LabelJSON struct {
 	M       uint32 `json:"m"`
 }
 
-func (s OwnedUTXO) MarshalJSON() ([]byte, error) {
+func ConvertLabelToLabelJSON(v bip352.Label) Bip352LabelJSON {
+	return Bip352LabelJSON{
+		PubKey:  hex.EncodeToString(v.PubKey[:]),
+		Tweak:   hex.EncodeToString(v.Tweak[:]),
+		Address: v.Address,
+		M:       v.M,
+	}
+}
+
+func ConvertLabelJSONToLabel(v Bip352LabelJSON) (*bip352.Label, error) {
+	pubKey, err := hex.DecodeString(v.PubKey)
+	if err != nil {
+		return nil, err
+	}
+	tweak, err := hex.DecodeString(v.Tweak)
+	if err != nil {
+		return nil, err
+	}
+	label := &bip352.Label{
+		PubKey:  bip352.ConvertToFixedLength33(pubKey),
+		Tweak:   bip352.ConvertToFixedLength32(tweak),
+		Address: v.Address,
+		M:       v.M,
+	}
+
+	return label, err
+}
+
+func (u OwnedUTXO) MarshalJSON() ([]byte, error) {
+
+	var label *Bip352LabelJSON
+	if u.Label != nil {
+		label = &Bip352LabelJSON{
+			PubKey:  hex.EncodeToString(u.Label.PubKey[:]),
+			Tweak:   hex.EncodeToString(u.Label.Tweak[:]),
+			Address: u.Label.Address,
+			M:       u.Label.M,
+		}
+	}
 	newUtxo := OwnedUtxoJSON{
-		Txid:         hex.EncodeToString(s.Txid[:]),
-		Vout:         s.Vout,
-		Amount:       s.Amount,
-		PrivKeyTweak: hex.EncodeToString(s.PrivKeyTweak[:]),
-		PubKey:       hex.EncodeToString(s.PubKey[:]),
-		Timestamp:    s.Timestamp,
-		State:        s.State,
-		Label: Bip352LabelJSON{
-			PubKey:  hex.EncodeToString(s.Label.PubKey[:]),
-			Tweak:   hex.EncodeToString(s.Label.Tweak[:]),
-			Address: s.Label.Address,
-			M:       s.Label.M,
-		},
+		Txid:         hex.EncodeToString(u.Txid[:]),
+		Vout:         u.Vout,
+		Amount:       u.Amount,
+		PrivKeyTweak: hex.EncodeToString(u.PrivKeyTweak[:]),
+		PubKey:       hex.EncodeToString(u.PubKey[:]),
+		Timestamp:    u.Timestamp,
+		State:        u.State,
+		Label:        label,
 	}
 
 	return json.Marshal(newUtxo)
+}
+
+func (u *OwnedUTXO) UnmarshalJSON(data []byte) error {
+	var aux OwnedUtxoJSON
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	txid, err := hex.DecodeString(aux.Txid)
+	if err != nil {
+		return err
+	}
+	privKeyTweak, err := hex.DecodeString(aux.PrivKeyTweak)
+	if err != nil {
+		return err
+	}
+	pubKey, err := hex.DecodeString(aux.PubKey)
+	if err != nil {
+		return err
+	}
+
+	var label *bip352.Label
+	if aux.Label != nil {
+		label, err = ConvertLabelJSONToLabel(*aux.Label)
+		if err != nil {
+			return err
+		}
+	}
+
+	*u = OwnedUTXO{
+		Txid:         bip352.ConvertToFixedLength32(txid),
+		Vout:         aux.Vout,
+		Amount:       aux.Amount,
+		PrivKeyTweak: bip352.ConvertToFixedLength32(privKeyTweak),
+		PubKey:       bip352.ConvertToFixedLength32(pubKey),
+		Timestamp:    aux.Timestamp,
+		State:        aux.State,
+		Label:        label,
+	}
+	return err
 }
 
 func (u OwnedUTXO) SerialiseToOutpoint() ([36]byte, error) {

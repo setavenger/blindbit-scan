@@ -3,25 +3,29 @@ package wallet
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 
+	"github.com/setavenger/blindbit-scan/pkg/types"
 	"github.com/setavenger/go-bip352"
 )
 
-type LabelMap map[[33]byte]*bip352.Label
+type LabelMap map[types.PublicKey]*bip352.Label
 
 func (lm *LabelMap) MarshalJSON() ([]byte, error) {
 	// Convert map to a type that can be marshaled by the standard JSON package
-	aux := make(map[string]*bip352.Label)
+	aux := make(map[string]Bip352LabelJSON)
 	for k, v := range *lm {
-		key := fmt.Sprintf("%x", k) // Convert byte array to hex string
-		aux[key] = v
+		aux[k.String()] = Bip352LabelJSON{
+			PubKey:  hex.EncodeToString(v.PubKey[:]),
+			Tweak:   hex.EncodeToString(v.Tweak[:]),
+			Address: v.Address,
+			M:       v.M,
+		}
 	}
 	return json.Marshal(aux)
 }
 
 func (lm *LabelMap) UnmarshalJSON(data []byte) error {
-	aux := make(map[string]*bip352.Label)
+	aux := make(map[string]Bip352LabelJSON)
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
@@ -33,7 +37,12 @@ func (lm *LabelMap) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
-		(*lm)[key] = v
+		label, err := ConvertLabelJSONToLabel(v)
+		if err != nil {
+			return err
+		}
+
+		(*lm)[key] = label
 	}
 	return nil
 }

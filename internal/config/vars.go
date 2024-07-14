@@ -7,8 +7,6 @@ import (
 )
 
 var (
-
-	/* [Network] */
 	// ExposeHttpHost if set gRPC will be exposed via http and not unix socket. This variable also defines the where it will be exposed.
 	ExposeHttpHost string
 
@@ -17,10 +15,6 @@ var (
 
 	// ElectrumServerAddress Electrum server
 	ElectrumServerAddress string
-
-	/* [Wallet] */
-	// MinChangeAmount The wallet will never create change that is smaller than this value. Value has to be in sats.
-	MinChangeAmount int64
 
 	// DustLimit only receives amounts and checks tweaks where the biggest utxo exceeds the dust limit.
 	// Note: that if you receive funds below this threshold you might not find them.

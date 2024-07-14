@@ -21,5 +21,6 @@ func (s *Server) RunServer() error {
 	router := gin.New()
 	router.GET("/height", s.GetCurrentHeight)
 	router.GET("/utxos", s.GetUtxos)
+	router.GET("/address", s.GetAddress)
 	return router.Run(config.ExposeHttpHost)
 }
