@@ -15,7 +15,7 @@ const (
 )
 
 func (u UTXOState) String() string {
-	return [...]string{"unconfirmed", "unspent", "spent", "unconfirmed_spent"}[u-1]
+	return [...]string{"unconfirmed", "unspent", "unconfirmed_spent", "spent"}[u-1]
 }
 
 func (u UTXOState) Index() int {

@@ -55,9 +55,9 @@ func LoadConfigs(pathToConfig string) error {
 		}
 	} else {
 		UseElectrum = false
-		AutomaticScanInterval = 1 * time.Minute
 	}
 
+	AutomaticScanInterval = 1 * time.Minute
 	DustLimit = viper.GetUint64("wallet.dust_limit")
 
 	// load keys

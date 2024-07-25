@@ -189,6 +189,7 @@ func (d *Daemon) SyncToTip(chainTip uint64) error {
 	}
 
 	if startHeight > chainTip {
+		// todo debug/testing log
 		return nil
 	}
 
@@ -245,6 +246,7 @@ func (d *Daemon) SyncToTip(chainTip uint64) error {
 
 func (d *Daemon) ContinuousScan() error {
 	d.SyncToTip(0)
+	ticker := time.NewTicker(config.AutomaticScanInterval)
 	for {
 		select {
 		case newBlock := <-d.NewBlockChan:
@@ -270,7 +272,7 @@ func (d *Daemon) ContinuousScan() error {
 			if oldBalance != newBalance {
 				log.Printf("New balance: %d\n", newBalance)
 			}
-		case <-time.NewTicker(config.AutomaticScanInterval).C:
+		case <-ticker.C:
 			// todo is this needed if NewBlockChan is very robust?
 			// check every 5 minutes anyway
 			chainTip, err := d.ClientBlindBit.GetChainTip()
@@ -279,7 +281,7 @@ func (d *Daemon) ContinuousScan() error {
 				return err
 			}
 
-			if chainTip <= d.Wallet.LastScanHeight {
+			if chainTip < d.Wallet.LastScanHeight {
 				continue
 			}
 
