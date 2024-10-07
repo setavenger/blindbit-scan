@@ -26,15 +26,21 @@ electrum_tor_proxy_host = "127.0.0.1:9050"
 # Default: signet
 chain = "signet"
 
+[auth]
+# set the user name for basic auth
+user = "<user-name>"
+
+# set the password for basic auth
+pass = "<your-strong-password>"
 
 [wallet]
 
 # Your public spend key <33-byte compressed>
-spend_pub_key = "02fb291507cb77ad2349782409c5d5cd6c0ff2052ddcac0c509ac2d434c8f641c8"
+spend_pub_key = "<spend_pub_key>"
 
 # The secret scan key. THis key is needed to find transactions where you receive funds. Sending is not possible using this key.
 # <32-byte secret/private key>
-scan_secret_key = "d6e87e971e898d79077d15c26f9988f3786cda4f8b267eb9d181fa8899b2ddc9"
+scan_secret_key = "<scan_secret_key>"
 
 # The wallet will only request tweaks for transactions where the utxo with the largest value exceeds the `dust_limit` value.
 # Note that if you receive funds below this threshold you might not find them. Rescan without a dustlimit to find those.

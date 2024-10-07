@@ -6,6 +6,10 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 )
 
+func init() {
+	KeysReadyChan = make(chan struct{})
+}
+
 var (
 	// ExposeHttpHost if set gRPC will be exposed via http and not unix socket. This variable also defines the where it will be exposed.
 	ExposeHttpHost string
@@ -40,4 +44,12 @@ var (
 	BirthHeight uint64
 
 	LabelCount int
+
+	// basic auth details
+	AuthUser string
+
+	AuthPass string
+
+	// keys are ready chan
+	KeysReadyChan chan struct{}
 )

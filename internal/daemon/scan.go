@@ -8,12 +8,13 @@ import (
 	"log"
 	"time"
 
+	"github.com/btcsuite/btcd/btcutil/gcs"
+	"github.com/btcsuite/btcd/btcutil/gcs/builder"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcutil/gcs"
-	"github.com/btcsuite/btcutil/gcs/builder"
 	"github.com/setavenger/blindbit-scan/internal/config"
 	"github.com/setavenger/blindbit-scan/internal/wallet"
 	"github.com/setavenger/blindbit-scan/pkg/database"
+	"github.com/setavenger/blindbit-scan/pkg/logging"
 	"github.com/setavenger/blindbit-scan/pkg/networking"
 	"github.com/setavenger/blindbit-scan/pkg/utils"
 	"github.com/setavenger/blindbitd/src" // todo move blindbitd/src to a pkg for all blindbit programs
@@ -21,10 +22,9 @@ import (
 )
 
 func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
-
 	tweaks, err := d.ClientBlindBit.GetTweaks(blockHeight, config.DustLimit)
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return nil, err
 	}
 
@@ -35,26 +35,20 @@ func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
 		i++
 	}
 
-	// todo change back to assigning via index slice[i] once we are sure how long a slice will be; can we be sure how long it will always be?
 	var potentialOutputs [][]byte
-	// check for all tweaks normal outputs
-	// + all tweaks * labels
-	// + all tweaks * labels with opposite parity
-	// + all prior found scripts in case someone resent to one of those scripts
-	//var potentialOutputs = make([][]byte, len(tweaks)*(len(labelsToCheck)*2)+len(d.Wallet.PubKeysToWatch))
 
 	for _, tweak := range tweaks {
 		var sharedSecret [33]byte
 		sharedSecret, err = bip352.CreateSharedSecret(tweak, d.Wallet.SecretKeyScan, nil)
 		if err != nil {
-			log.Println(err)
+			logging.L.Err(err).Msg("")
 			return nil, err
 		}
 
 		var outputPubKey [32]byte
 		outputPubKey, err = bip352.CreateOutputPubKey(sharedSecret, d.Wallet.PubKeySpend, 0)
 		if err != nil {
-			log.Println(err)
+			logging.L.Err(err).Msg("")
 			return nil, err
 		}
 
@@ -63,14 +57,12 @@ func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
 		// todo add option to skip precomputed labels and just pull all found outputs directly.
 		//  For large numbers of labels and situations where bandwidth is not a constrained
 		for _, label := range labelsToCheck {
-
 			outputPubKey33 := bip352.ConvertToFixedLength33(append([]byte{0x02}, outputPubKey[:]...))
-
 			// even parity
 			var labelPotentialOutputPrep [33]byte
 			labelPotentialOutputPrep, err = bip352.AddPublicKeys(outputPubKey33, label.PubKey)
 			if err != nil {
-				log.Println(err)
+				logging.L.Err(err).Msg("")
 				panic(err)
 			}
 
@@ -80,14 +72,14 @@ func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
 			var negatedLabelPubKey [33]byte
 			negatedLabelPubKey, err = bip352.NegatePublicKey(label.PubKey)
 			if err != nil {
-				log.Println(err)
+				logging.L.Err(err).Msg("")
 				panic(err)
 			}
 
 			var labelPotentialOutputPrepNegated [33]byte
 			labelPotentialOutputPrepNegated, err = bip352.AddPublicKeys(outputPubKey33, negatedLabelPubKey)
 			if err != nil {
-				log.Println(err)
+				logging.L.Err(err).Msg("")
 				panic(err)
 			}
 
@@ -101,13 +93,13 @@ func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
 
 	filterData, err := d.ClientBlindBit.GetFilter(blockHeight, networking.NewUTXOFilterType)
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return nil, err
 	}
 
 	isMatch, err := matchFilter(filterData.Data, filterData.BlockHash, potentialOutputs)
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return nil, err
 	}
 	if !isMatch {
@@ -116,7 +108,7 @@ func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
 
 	utxos, err := d.ClientBlindBit.GetUTXOs(blockHeight)
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return nil, err
 	}
 
@@ -131,7 +123,7 @@ func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
 		var foundOutputsPerTweak []*bip352.FoundOutput
 		foundOutputsPerTweak, err = bip352.ReceiverScanTransaction(d.Wallet.SecretKeyScan, d.Wallet.PubKeySpend, labelsToCheck, blockOutputs, tweak, nil)
 		if err != nil {
-			log.Println(err)
+			logging.L.Err(err).Msg("")
 			return nil, err
 		}
 		foundOutputs = append(foundOutputs, foundOutputsPerTweak...)
@@ -149,7 +141,7 @@ func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
 		utxo, exists := matchUTXOMap[foundOutput.Output]
 		if !exists {
 			err = src.ErrNoMatchForUTXO
-			log.Println(err)
+			logging.L.Err(err).Msg("")
 			return nil, err
 		}
 		state := wallet.StateUnspent
@@ -172,16 +164,18 @@ func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
 }
 
 func (d *Daemon) SyncToTip(chainTip uint64) error {
+	var abort bool
 	var err error
 	if chainTip == 0 {
 		chainTip, err = d.ClientBlindBit.GetChainTip()
 		if err != nil {
-			log.Println(err)
+			logging.L.Err(err).Msg("")
 			return err
 		}
 	}
 
-	log.Println("Tip:", chainTip)
+	logging.L.Debug().Msgf("Trying to sync to height: %d", chainTip)
+
 	// todo find fixed points for mainnet/signet/testnet where startHeight can start from. Avoid scanning through non SP merged blocks
 	var startHeight = d.Wallet.BirthHeight
 	if d.Wallet.LastScanHeight >= startHeight {
@@ -198,23 +192,43 @@ func (d *Daemon) SyncToTip(chainTip uint64) error {
 		startHeight = 1
 	}
 
+	go func() {
+		<-d.ctx.Done()
+		abort = true
+	}()
+
 	for i := startHeight; i < chainTip+1; i++ {
-		d.MarkSpentUTXOs(i) // this can probably be omitted if electrum is used
+		if abort {
+			err = d.ctx.Err()
+			logging.L.Info().Msg("aborted sync")
+			return err
+		}
+
+		err = d.MarkSpentUTXOs(i) // this can probably be omitted if electrum is used
+		if err != nil {
+			logging.L.Err(err).Uint64("height", i).Msg("error marking utxos")
+			return err
+		}
 		// possible logging here to indicate to the user
-		log.Println("syncing:", i)
+		logging.L.Info().Uint64("height", i).Msg("syncing")
 		var ownedUTXOs []*wallet.OwnedUTXO
 		ownedUTXOs, err = d.syncBlock(i)
 		if err != nil {
-			log.Println(err)
+			logging.L.Err(err).Uint64("height", i).Msg("")
 			return err
 		}
 		if ownedUTXOs == nil {
-			d.Wallet.LastScanHeight = i
+			if !abort {
+				// otherwise the scan height will be overriden between key reset and cleaning up of sync loop
+				// todo: make more robust, unnecessary trick
+				d.Wallet.LastScanHeight = i
+			}
+
 			if i%100 == 0 {
 				// do some writes anyways to save the last state of the scan height
-				err = database.WriteToDB(config.PathDbWallet, d.Wallet)
+				err = database.WriteWalletToDB(config.PathDbWallet, d.Wallet)
 				if err != nil {
-					log.Println(err)
+					logging.L.Err(err).Uint64("height", i).Msg("")
 					return err
 				}
 			}
@@ -222,63 +236,91 @@ func (d *Daemon) SyncToTip(chainTip uint64) error {
 		}
 		err = d.Wallet.AddUTXOs(ownedUTXOs)
 		if err != nil {
-			log.Println(err)
+			logging.L.Err(err).Msg("")
 			return err
 		}
-		log.Println("Added UTXOs to wallet")
-		d.Wallet.LastScanHeight = i
+		logging.L.Info().Msg("Added UTXOs to wallet")
+		if !abort {
+			// otherwise the scan height will be overriden between key reset and cleaning up of sync loop
+			// todo: make more robust, unnecessary trick
+			d.Wallet.LastScanHeight = i
+		}
 
 		// todo: database should be an interface to allow other forms of storing data.
-		err = database.WriteToDB(config.PathDbWallet, d.Wallet)
+		err = database.WriteWalletToDB(config.PathDbWallet, d.Wallet)
 		if err != nil {
-			log.Println(err)
+			logging.L.Err(err).Msg("")
 			return err
 		}
 	}
 
 	err = d.CheckUnspentUTXOs()
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return err
 	}
 	return err
 }
 
-func (d *Daemon) ContinuousScan() error {
-	d.SyncToTip(0)
+func (d *Daemon) ContinuousScan() (err error) {
+	logging.L.Info().Msg("starting continous scan")
+
 	ticker := time.NewTicker(config.AutomaticScanInterval)
+	t1 := make(chan struct{}, 1)
+	t1 <- struct{}{}
+
+	var abort bool
+	go func() {
+		<-d.ctx.Done()
+		abort = true
+	}()
+
 	for {
+		if abort {
+			err = d.ctx.Err()
+			logging.L.Info().Msg("aborted continous scan")
+			return err
+		}
+
 		select {
+		case <-t1:
+			// just for the initial trigger. Should only trigger once
+			err := d.SyncToTip(0)
+			if err != nil {
+				logging.L.Err(err).Msg("could not sync to tip")
+				// return err
+			}
+			logging.L.Info().Uint64("balance", d.Wallet.FreeBalance()).Msg("")
 		case newBlock := <-d.NewBlockChan:
 			<-time.After(5 * time.Second) // delay, indexing server does not index immediately after a block is found
 			oldBalance := d.Wallet.FreeBalance()
 			err := d.SyncToTip(uint64(newBlock.Height))
 			if err != nil {
-				log.Println(err)
-				return err
+				logging.L.Err(err).Msg("could not sync to tip")
+				// return err
 			}
 			newBalance := d.Wallet.FreeBalance()
 			if oldBalance != newBalance {
-				log.Printf("New balance: %d\n", newBalance)
+				logging.L.Info().Uint64("balance", newBalance).Msg("update")
 			}
 		case height := <-d.TriggerRescanChan:
 			oldBalance := d.Wallet.FreeBalance()
 			err := d.ForceSyncFrom(height)
 			if err != nil {
-				log.Println(err)
+				logging.L.Err(err).Msg("could not sync to tip")
 				return err
 			}
 			newBalance := d.Wallet.FreeBalance()
 			if oldBalance != newBalance {
-				log.Printf("New balance: %d\n", newBalance)
+				logging.L.Info().Uint64("balance", newBalance).Msg("update")
 			}
 		case <-ticker.C:
 			// todo is this needed if NewBlockChan is very robust?
 			// check every 5 minutes anyway
 			chainTip, err := d.ClientBlindBit.GetChainTip()
 			if err != nil {
-				log.Println(err)
-				return err
+				logging.L.Err(err).Msg("could not get chain tip")
+				// return err
 			}
 
 			if chainTip < d.Wallet.LastScanHeight {
@@ -287,14 +329,17 @@ func (d *Daemon) ContinuousScan() error {
 
 			err = d.SyncToTip(chainTip)
 			if err != nil {
-				log.Println(err)
-				return err
+				logging.L.Err(err).Msg("could not get chain tip")
+				// return err
 			}
 		case <-time.NewTicker(1 * time.Minute).C:
+			if !config.UseElectrum {
+				continue
+			}
 			// exclusively to check for spent UTXOs
 			err := d.CheckUnspentUTXOs()
 			if err != nil {
-				log.Println(err)
+				logging.L.Err(err).Msg("could not check UTXO states")
 				return err
 			}
 		}
@@ -306,6 +351,7 @@ func (d *Daemon) ContinuousScan() error {
 func (d *Daemon) CheckUnspentUTXOs() error {
 	if !config.UseElectrum {
 		// we don't use Electrum if set to false
+		logging.L.Warn().Msg("electrum is not configured")
 		return nil
 	}
 	// todo this probably breaks if more than one UTXO are locked to a script
@@ -313,7 +359,7 @@ func (d *Daemon) CheckUnspentUTXOs() error {
 	for _, utxo := range d.Wallet.GetUTXOsByStates(wallet.StateUnspent, wallet.StateUnconfirmedSpent) {
 		balance, err := d.ClientElectrum.GetBalance(context.Background(), utils.ConvertPubKeyToScriptHash(utxo.PubKey))
 		if err != nil {
-			log.Println(err)
+			logging.L.Err(err).Msg("")
 			return err
 		}
 		if balance.Confirmed == 0.0 && balance.Unconfirmed == 0.0 {
@@ -332,7 +378,7 @@ func (d *Daemon) MarkSpentUTXOs(blockHeight uint64) error {
 	// move SpentOutpointsIndex to types
 	filter, err := d.ClientBlindBit.GetFilter(blockHeight, networking.SpentOutpointsFilterType)
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return err
 	}
 	hashes := d.generateLocalOutpointHashes([32]byte(filter.BlockHash))
@@ -347,7 +393,7 @@ func (d *Daemon) MarkSpentUTXOs(blockHeight uint64) error {
 
 	isMatch, err := matchFilter(filter.Data, filter.BlockHash, hashesForFilter)
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return err
 	}
 
@@ -357,7 +403,7 @@ func (d *Daemon) MarkSpentUTXOs(blockHeight uint64) error {
 
 	index, err := d.ClientBlindBit.GetSpentOutpointsIndex(blockHeight)
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return err
 	}
 
@@ -373,34 +419,54 @@ func (d *Daemon) MarkSpentUTXOs(blockHeight uint64) error {
 func (d *Daemon) ForceSyncFrom(fromHeight uint64) error {
 	chainTip, err := d.ClientBlindBit.GetChainTip()
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return err
 	}
 
-	log.Printf("ForceSyncFrom: %d to %d\n", fromHeight, chainTip)
+	logging.L.Info().Msgf("ForceSyncFrom: %d to %d\n", fromHeight, chainTip)
 
 	// don't check genesis block
 	if fromHeight == 0 {
 		fromHeight = 1
 	}
 
+	var abort bool
+	go func() {
+		<-d.ctx.Done()
+		abort = true
+	}()
+
 	for i := fromHeight; i < chainTip+1; i++ {
-		d.MarkSpentUTXOs(i) // this can probably be omitted if electrum is used
+		if abort {
+			err = d.ctx.Err()
+			logging.L.Info().Msg("aborted sync")
+			return err
+		}
+		logging.L.Info().Uint64("height", i).Msg("syncing")
+		err = d.MarkSpentUTXOs(i) // this can probably be omitted if electrum is used
+		if err != nil {
+			logging.L.Err(err).Uint64("height", i).Msg("error marking utxos")
+			return err
+		}
+
 		// possible logging here to indicate to the user
-		log.Println("syncing:", i)
 		var ownedUTXOs []*wallet.OwnedUTXO
 		ownedUTXOs, err = d.syncBlock(i)
 		if err != nil {
-			log.Println(err)
+			logging.L.Err(err).Msg("")
 			return err
 		}
 		if ownedUTXOs == nil {
-			d.Wallet.LastScanHeight = i
+			if !abort {
+				// otherwise the scan height will be overriden between key reset and cleaning up of sync loop
+				// todo: make more robust, unnecessary trick
+				d.Wallet.LastScanHeight = i
+			}
 			if i%100 == 0 {
 				// do some writes anyways to save the last state of the scan height
-				err = database.WriteToDB(config.PathDbWallet, d.Wallet)
+				err = database.WriteWalletToDB(config.PathDbWallet, d.Wallet)
 				if err != nil {
-					log.Println(err)
+					logging.L.Err(err).Msg("")
 					return err
 				}
 			}
@@ -408,20 +474,24 @@ func (d *Daemon) ForceSyncFrom(fromHeight uint64) error {
 		}
 		err = d.Wallet.AddUTXOs(ownedUTXOs)
 		if err != nil {
-			log.Println(err)
+			logging.L.Err(err).Msg("")
 			return err
 		}
-		d.Wallet.LastScanHeight = i
-		err = database.WriteToDB(config.PathDbWallet, d.Wallet)
+		if !abort {
+			// otherwise the scan height will be overriden between key reset and cleaning up of sync loop
+			// todo: make more robust, unnecessary trick
+			d.Wallet.LastScanHeight = i
+		}
+		err = database.WriteWalletToDB(config.PathDbWallet, d.Wallet)
 		if err != nil {
-			log.Println(err)
+			logging.L.Err(err).Msg("")
 			return err
 		}
 	}
 
 	err = d.CheckUnspentUTXOs()
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return err
 	}
 	log.Println("Rescan complete")
@@ -430,7 +500,6 @@ func (d *Daemon) ForceSyncFrom(fromHeight uint64) error {
 }
 
 func (d *Daemon) generateLocalOutpointHashes(blockHash [32]byte) map[[8]byte]*wallet.OwnedUTXO {
-
 	outputs := make(map[[8]byte]*wallet.OwnedUTXO, len(d.Wallet.UTXOs))
 	blockHashLE := bip352.ReverseBytesCopy(blockHash[:])
 	for _, utxo := range d.Wallet.UTXOs {
@@ -455,14 +524,14 @@ func matchFilter(nBytes []byte, blockHash [32]byte, values [][]byte) (bool, erro
 
 	err := c.SetBytes(bip352.ReverseBytesCopy(blockHash[:]))
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return false, err
 
 	}
 
 	filter, err := gcs.FromNBytes(builder.DefaultP, builder.DefaultM, nBytes)
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return false, err
 	}
 
@@ -470,7 +539,7 @@ func matchFilter(nBytes []byte, blockHash [32]byte, values [][]byte) (bool, erro
 
 	isMatch, err := filter.HashMatchAny(key, values)
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return false, err
 	}
 
