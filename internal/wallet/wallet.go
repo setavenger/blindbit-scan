@@ -9,6 +9,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/setavenger/blindbit-scan/internal"
 	"github.com/setavenger/blindbit-scan/internal/config"
+	"github.com/setavenger/blindbit-scan/pkg/logging"
 	"github.com/setavenger/blindbit-scan/pkg/types"
 	"github.com/setavenger/blindbitd/src"
 	"github.com/setavenger/go-bip352"
@@ -62,7 +63,7 @@ func SetupWallet(
 	for i := 0; i < labelCount+1; i++ {
 		err = wallet.generateNextLabel()
 		if err != nil {
-			log.Println(err)
+			logging.L.Err(err).Msg("error generating labels")
 			return nil, err
 		}
 	}
@@ -89,7 +90,7 @@ func (w *Wallet) AddUTXOs(utxos []*OwnedUTXO) error {
 			continue
 		}
 
-		log.Printf("NewUTXO: %x\n", key)
+		logging.L.Info().Hex("utxo", key[:]).Msg("new utxo added")
 
 		w.UTXOs = append(w.UTXOs, utxo)
 		w.UTXOMapping[key] = struct{}{}
@@ -112,7 +113,7 @@ func (w *Wallet) generateNextLabel() error {
 
 	BmKey, err := bip352.AddPublicKeys(w.PubKeySpend, label.PubKey)
 	if err != nil {
-		log.Println(err)
+		logging.L.Err(err).Msg("")
 		return err
 	}
 	address, err := bip352.CreateAddress(w.PubKeyScan, BmKey, mainnet, 0)

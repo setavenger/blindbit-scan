@@ -56,6 +56,8 @@ func (s *Server) RunServer() error {
 	walletReadyGroup.GET("/utxos", s.GetUtxos)
 	walletReadyGroup.GET("/address", s.GetAddress)
 
+	walletReadyGroup.POST("/rescan", s.PostRescan)
+
 	if err := router.Run(config.ExposeHttpHost); err != nil {
 		slog.Error(err.Error())
 		return err

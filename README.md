@@ -11,7 +11,8 @@ A scan-only client for BIP 352 silent payment wallets. The program runs in the b
 - run `make build` in project root directory 
 
 ### Configuration
-The necessary fields are explained in the [blindbit.example.toml](./blindbit.example.toml).
+The necessary fields are explained in the [blindbit.example.toml](./blindbit.example.toml). Alternatively the most variables can be set as ENV variables. 
+A simple frontend exists as well. [The frontend for BlindBit Scan](https://github.com/setavenger/blindbit-scan-frontend) has functionality to set up the keys and also download a json file with the UTXOs.
 
 ### Run
 - setup the blindbit.toml with the correct configurations

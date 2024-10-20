@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -34,6 +35,30 @@ func (s *Server) GetAddress(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"address": address})
+}
+
+type RescanReq struct {
+	Height uint64 `json:"height"`
+}
+
+func (s *Server) PostRescan(c *gin.Context) {
+	var requestBody RescanReq
+	err := c.ShouldBindJSON(&requestBody)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"err": err.Error()})
+		c.Abort()
+		return
+	}
+
+	if requestBody.Height < 1 {
+		err = fmt.Errorf("height (%d) is invalid for rescan", requestBody.Height)
+		c.JSON(http.StatusInternalServerError, gin.H{"err": err.Error()})
+		c.Abort()
+		return
+	}
+
+	s.Daemon.TriggerRescanChan <- requestBody.Height
+	c.JSON(http.StatusOK, gin.H{"height": requestBody.Height})
 }
 
 type SetupReq struct {

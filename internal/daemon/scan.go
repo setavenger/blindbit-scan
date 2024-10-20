@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"log"
 	"time"
 
@@ -16,10 +17,14 @@ import (
 	"github.com/setavenger/blindbit-scan/pkg/database"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
 	"github.com/setavenger/blindbit-scan/pkg/networking"
-	"github.com/setavenger/blindbit-scan/pkg/utils"
-	"github.com/setavenger/blindbitd/src" // todo move blindbitd/src to a pkg for all blindbit programs
+	"github.com/setavenger/blindbit-scan/pkg/utils" // todo move blindbitd/src to a pkg for all blindbit programs
 	"github.com/setavenger/go-bip352"
 )
+
+type TweakScriptMap struct {
+	Tweak        [33]byte
+	ScriptPubKey [32]byte
+}
 
 func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
 	tweaks, err := d.ClientBlindBit.GetTweaks(blockHeight, config.DustLimit)
@@ -35,132 +40,156 @@ func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
 		i++
 	}
 
-	var potentialOutputs [][]byte
+	// Map Tweaks to ScriptPubKey
+	tweakToScriptMap := make(map[[32]byte]TweakScriptMap)
 
 	for _, tweak := range tweaks {
-		var sharedSecret [33]byte
-		sharedSecret, err = bip352.CreateSharedSecret(tweak, d.Wallet.SecretKeyScan, nil)
+		sharedSecret, err := bip352.CreateSharedSecret(tweak, d.Wallet.SecretKeyScan, nil)
 		if err != nil {
 			logging.L.Err(err).Msg("")
 			return nil, err
 		}
 
-		var outputPubKey [32]byte
-		outputPubKey, err = bip352.CreateOutputPubKey(sharedSecret, d.Wallet.PubKeySpend, 0)
+		outputPubKey, err := bip352.CreateOutputPubKey(sharedSecret, d.Wallet.PubKeySpend, 0)
 		if err != nil {
 			logging.L.Err(err).Msg("")
 			return nil, err
 		}
 
-		// todo we do this for now until the filters are changed to the 32byte x-only taproot pub keys (resolved)
-		potentialOutputs = append(potentialOutputs, outputPubKey[:])
-		// todo add option to skip precomputed labels and just pull all found outputs directly.
-		//  For large numbers of labels and situations where bandwidth is not a constrained
+		tweakToScriptMap[outputPubKey] = TweakScriptMap{
+			Tweak:        tweak,
+			ScriptPubKey: outputPubKey,
+		}
+
+		// also precompute for labels
 		for _, label := range labelsToCheck {
 			outputPubKey33 := bip352.ConvertToFixedLength33(append([]byte{0x02}, outputPubKey[:]...))
-			// even parity
-			var labelPotentialOutputPrep [33]byte
-			labelPotentialOutputPrep, err = bip352.AddPublicKeys(outputPubKey33, label.PubKey)
+			labelPotentialOutputPrep, err := bip352.AddPublicKeys(outputPubKey33, label.PubKey)
 			if err != nil {
 				logging.L.Err(err).Msg("")
 				panic(err)
 			}
 
-			potentialOutputs = append(potentialOutputs, labelPotentialOutputPrep[1:])
+			tweakToScriptMap[bip352.ConvertToFixedLength32(labelPotentialOutputPrep[1:])] = TweakScriptMap{
+				Tweak:        tweak,
+				ScriptPubKey: bip352.ConvertToFixedLength32(labelPotentialOutputPrep[1:]),
+			}
 
-			// add label with uneven parity as well
-			var negatedLabelPubKey [33]byte
-			negatedLabelPubKey, err = bip352.NegatePublicKey(label.PubKey)
+			negatedLabelPubKey, err := bip352.NegatePublicKey(label.PubKey)
 			if err != nil {
 				logging.L.Err(err).Msg("")
 				panic(err)
 			}
 
-			var labelPotentialOutputPrepNegated [33]byte
-			labelPotentialOutputPrepNegated, err = bip352.AddPublicKeys(outputPubKey33, negatedLabelPubKey)
+			labelPotentialOutputPrepNegated, err := bip352.AddPublicKeys(outputPubKey33, negatedLabelPubKey)
 			if err != nil {
 				logging.L.Err(err).Msg("")
 				panic(err)
 			}
 
-			potentialOutputs = append(potentialOutputs, labelPotentialOutputPrepNegated[1:])
+			tweakToScriptMap[bip352.ConvertToFixedLength32(labelPotentialOutputPrepNegated[1:])] = TweakScriptMap{
+				Tweak:        tweak,
+				ScriptPubKey: bip352.ConvertToFixedLength32(labelPotentialOutputPrepNegated[1:]),
+			}
 		}
 	}
 
-	if len(potentialOutputs) == 0 {
+	if len(tweakToScriptMap) == 0 {
 		return nil, nil
 	}
 
-	filterData, err := d.ClientBlindBit.GetFilter(blockHeight, networking.NewUTXOFilterType)
-	if err != nil {
-		logging.L.Err(err).Msg("")
-		return nil, err
-	}
+	// todo filter whether we should get the outputs in the first place
 
-	isMatch, err := matchFilter(filterData.Data, filterData.BlockHash, potentialOutputs)
-	if err != nil {
-		logging.L.Err(err).Msg("")
-		return nil, err
-	}
-	if !isMatch {
-		return nil, nil
-	}
+	// 	filterData, err := d.ClientBlindBit.GetFilter(blockHeight, networking.NewUTXOFilterType)
+	// 	if err != nil {
+	// 		logging.L.Err(err).Msg("")
+	// 		return nil, err
+	// 	}
+	//
+	// 	isMatch, err := matchFilter(filterData.Data, filterData.BlockHash, potentialOutputs)
+	// 	if err != nil {
+	// 		logging.L.Err(err).Msg("")
+	// 		return nil, err
+	// 	}
+	// 	if !isMatch {
+	// 		return nil, nil
+	// 	}
 
+	// Retrieve and Group Block Outputs by ScriptPubKey
 	utxos, err := d.ClientBlindBit.GetUTXOs(blockHeight)
 	if err != nil {
 		logging.L.Err(err).Msg("")
 		return nil, err
 	}
 
-	var foundOutputs []*bip352.FoundOutput
-
-	var blockOutputs = make([][32]byte, len(utxos)) // we use it as txOutputs we check against all outputs from the block
-	for i, utxo := range utxos {
-		blockOutputs[i] = bip352.ConvertToFixedLength32(utxo.ScriptPubKey[2:])
+	txidGroups := make(map[[32]byte][]*networking.UTXOServed) // txid -> utxos with that txid
+	helperMapping := make(map[[32]byte][32]byte)              // helper mapping: output to txid
+	for _, utxo := range utxos {
+		txidGroups[utxo.Txid] = append(txidGroups[utxo.Txid], utxo)
+		helperMapping[bip352.ConvertToFixedLength32(utxo.ScriptPubKey[2:])] = utxo.Txid
 	}
 
-	for _, tweak := range tweaks {
-		var foundOutputsPerTweak []*bip352.FoundOutput
-		foundOutputsPerTweak, err = bip352.ReceiverScanTransaction(d.Wallet.SecretKeyScan, d.Wallet.PubKeySpend, labelsToCheck, blockOutputs, tweak, nil)
+	tweaksOutputsToCheckMap := make(map[[33]byte][]*networking.UTXOServed)
+	// mapping from tweak -> txid (output group)
+	for scriptPub32, tweakMap := range tweakToScriptMap {
+		if txid, exists := helperMapping[scriptPub32]; exists {
+			// scriptpubkey that we already precomputed is found within the utxos
+			// we attach all outputs for the transaction to check
+			if tweaksOutputsToCheckMap[tweakMap.Tweak], exists = txidGroups[txid]; !exists {
+				err = fmt.Errorf("maps were not aligned, txid should always have utxos (%x)", txid[:])
+				logging.L.Panic().Err(err).Msg("")
+				return nil, err
+			}
+		}
+	}
+
+	// Scan Only Relevant Groups
+	var ownedUTXOs []*wallet.OwnedUTXO
+
+	for tweak, relevantUTXOs := range tweaksOutputsToCheckMap {
+		var txOutputs [][32]byte
+		for _, utxo := range relevantUTXOs {
+			fixedLengthOutput := bip352.ConvertToFixedLength32(utxo.ScriptPubKey[2:])
+			txOutputs = append(txOutputs, fixedLengthOutput)
+		}
+
+		foundOutputsPerTweak, err := bip352.ReceiverScanTransaction(
+			d.Wallet.SecretKeyScan,
+			d.Wallet.PubKeySpend,
+			labelsToCheck,
+			txOutputs,
+			tweak,
+			nil,
+		)
 		if err != nil {
 			logging.L.Err(err).Msg("")
 			return nil, err
 		}
-		foundOutputs = append(foundOutputs, foundOutputsPerTweak...)
-	}
 
-	// use a map to not have to iterate for every found UTXOServed, map should be faster lookup
-	matchUTXOMap := make(map[[32]byte]*networking.UTXOServed)
-	for _, utxo := range utxos {
-		matchUTXOMap[bip352.ConvertToFixedLength32(utxo.ScriptPubKey[2:])] = utxo
-	}
-
-	var ownedUTXOs []*wallet.OwnedUTXO
-	for _, foundOutput := range foundOutputs {
-
-		utxo, exists := matchUTXOMap[foundOutput.Output]
-		if !exists {
-			err = src.ErrNoMatchForUTXO
-			logging.L.Err(err).Msg("")
-			return nil, err
+		for _, foundOutput := range foundOutputsPerTweak {
+			for _, utxo := range relevantUTXOs {
+				if bytes.Equal(foundOutput.Output[:], utxo.ScriptPubKey[2:]) {
+					state := wallet.StateUnspent
+					if utxo.Spent {
+						state = wallet.StateSpent
+					}
+					ownedUTXOs = append(ownedUTXOs, &wallet.OwnedUTXO{
+						Txid:         utxo.Txid,
+						Vout:         utxo.Vout,
+						Amount:       utxo.Amount,
+						PrivKeyTweak: foundOutput.SecKeyTweak,
+						PubKey:       foundOutput.Output,
+						Timestamp:    utxo.Timestamp,
+						State:        state,
+						Label:        foundOutput.Label,
+					})
+					break
+				}
+			}
 		}
-		state := wallet.StateUnspent
-		if utxo.Spent {
-			state = wallet.StateSpent
-		}
-		ownedUTXOs = append(ownedUTXOs, &wallet.OwnedUTXO{
-			Txid:         utxo.Txid,
-			Vout:         utxo.Vout,
-			Amount:       utxo.Amount,
-			PrivKeyTweak: foundOutput.SecKeyTweak,
-			PubKey:       foundOutput.Output,
-			Timestamp:    utxo.Timestamp,
-			State:        state,
-			Label:        foundOutput.Label,
-		})
 	}
 
-	return ownedUTXOs, err
+	return ownedUTXOs, nil
 }
 
 func (d *Daemon) SyncToTip(chainTip uint64) error {
