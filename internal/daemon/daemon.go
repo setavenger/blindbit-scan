@@ -6,10 +6,10 @@ import (
 	"os"
 
 	"github.com/setavenger/blindbit-scan/internal/config"
-	"github.com/setavenger/blindbit-scan/internal/wallet"
 	"github.com/setavenger/blindbit-scan/pkg/database"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
 	"github.com/setavenger/blindbit-scan/pkg/networking" // todo move all blindbitd/src/*
+	"github.com/setavenger/blindbit-scan/pkg/wallet"
 	"github.com/setavenger/go-electrum/electrum"
 )
 
@@ -39,7 +39,7 @@ func SetupDaemon(path string) (*Daemon, error) {
 		}
 	}
 
-	w, err := wallet.TryLoadWalletFromDisk(path)
+	w, err := database.TryLoadWalletFromDisk(path)
 	if err != nil {
 		logging.L.Err(err).Msg("")
 		return nil, err

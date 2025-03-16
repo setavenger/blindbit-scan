@@ -3,15 +3,13 @@ package wallet
 import (
 	"encoding/json"
 	"log"
-	"os"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/setavenger/blindbit-scan/internal"
 	"github.com/setavenger/blindbit-scan/internal/config"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
 	"github.com/setavenger/blindbit-scan/pkg/types"
-	"github.com/setavenger/blindbitd/src"
+	"github.com/setavenger/blindbit-scan/pkg/utils"
 	"github.com/setavenger/go-bip352"
 )
 
@@ -126,30 +124,11 @@ func (w *Wallet) generateNextLabel() error {
 	_, exists := w.Labels[label.PubKey]
 	if exists {
 		// users should not create the same label twice
-		return src.ErrLabelAlreadyExists
+		return utils.ErrLabelAlreadyExists
 	}
 
 	w.Labels[label.PubKey] = &label
 	return err
-}
-
-func TryLoadWalletFromDisk(path string) (*Wallet, error) {
-	if internal.CheckIfFileExists(path) {
-		walletData, err := os.ReadFile(path)
-		if err != nil {
-			log.Println(err)
-			return nil, err
-		}
-		var w Wallet
-		err = json.Unmarshal(walletData, &w)
-		if err != nil {
-			log.Println(err)
-			return nil, err
-		}
-		return &w, err
-	} else {
-		return SetupWallet(config.BirthHeight, config.LabelCount, config.ScanSecretKey, config.SpendPubKey)
-	}
 }
 
 func (w *Wallet) GetUTXOsByStates(states ...UTXOState) UtxoCollection {
