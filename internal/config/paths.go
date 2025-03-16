@@ -9,6 +9,7 @@ var (
 	PathLogs     string
 	PathConfig   string
 	PathDbWallet string
+	PathDbNWC    string
 )
 
 // needed for the flag default
@@ -17,6 +18,7 @@ const DefaultDirectoryPath = "~/.blindbit-scan"
 const dataPath = "/data"
 const PathEndingConfig = "/blindbit.toml"
 const PathEndingWallet = dataPath + "/wallet"
+const PathEndingNWC = dataPath + "/nwc"
 const PathEndingKeys = dataPath + "/keys"
 
 func SetPaths(baseDirectory string) {
@@ -31,10 +33,11 @@ func SetPaths(baseDirectory string) {
 
 	PathConfig = DirectoryPath + PathEndingConfig
 	PathDbWallet = DirectoryPath + PathEndingWallet
+	PathDbNWC = DirectoryPath + PathEndingNWC
 
 	// create the directories
 	utils.TryCreateDirectoryPanic(DirectoryPath)
 
 	utils.TryCreateDirectoryPanic(DirectoryPath + dataPath)
-	// utils.TryCreateDirectoryPanic(PathLogs)
+	// utils.TryCreateDirectoryPanic(PathDbNWC)
 }

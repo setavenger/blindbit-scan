@@ -9,8 +9,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/setavenger/blindbit-scan/internal/config"
-	"github.com/setavenger/blindbit-scan/internal/wallet"
+	"github.com/setavenger/blindbit-scan/pkg/database"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
+	"github.com/setavenger/blindbit-scan/pkg/wallet"
 	"github.com/setavenger/go-bip352"
 	"github.com/spf13/viper"
 )
@@ -162,4 +163,22 @@ func (s *Server) PutSilentPaymentKeys(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"address": address})
+}
+
+func (s *Server) NewNwcConnection(c *gin.Context) {
+	nwcURI, err := s.Nip47Controller.NewConnectionUri()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"err": err.Error()})
+		c.Abort()
+		return
+	}
+
+	err = database.WriteNip47ControllerToDB(config.PathDbNWC, s.Nip47Controller)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"err": err.Error()})
+		c.Abort()
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"uri": nwcURI})
 }

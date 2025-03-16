@@ -13,11 +13,11 @@ import (
 	"github.com/btcsuite/btcd/btcutil/gcs/builder"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/setavenger/blindbit-scan/internal/config"
-	"github.com/setavenger/blindbit-scan/internal/wallet"
 	"github.com/setavenger/blindbit-scan/pkg/database"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
 	"github.com/setavenger/blindbit-scan/pkg/networking"
 	"github.com/setavenger/blindbit-scan/pkg/utils" // todo move blindbitd/src to a pkg for all blindbit programs
+	"github.com/setavenger/blindbit-scan/pkg/wallet"
 	"github.com/setavenger/go-bip352"
 )
 
