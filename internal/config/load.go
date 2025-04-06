@@ -10,6 +10,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/goleveldb/leveldb/errors"
 	"github.com/rs/zerolog"
+	"github.com/setavenger/blindbit-scan/pkg/logging"
 	"github.com/setavenger/go-bip352"
 	"github.com/spf13/viper"
 )
@@ -19,14 +20,15 @@ func SetupConfigs(dirPath string) error {
 	return LoadConfigs(PathConfig)
 }
 
-func LoadConfigs(pathToConfig string) error {
-	log.Println("loading configs from env and", pathToConfig)
+func LoadConfigs(pathToConfig string) (err error) {
+	logging.L.Info().Msgf("loading configs from env and %s", pathToConfig)
 	// Set the file name of the configurations file
 	viper.SetConfigFile(pathToConfig)
 
 	// Handle errors reading the config file
-	if err := viper.ReadInConfig(); err != nil {
-		log.Printf("Error reading config file, %s", err)
+	if err = viper.ReadInConfig(); err != nil {
+		logging.L.Err(err).Msg("Error reading config file")
+		return
 	}
 
 	// map ENV var names
@@ -100,7 +102,6 @@ func LoadConfigs(pathToConfig string) error {
 
 	DustLimit = viper.GetUint64("wallet.dust_limit")
 
-	var err error
 	// load keys
 	scanSecretStr := viper.GetString("wallet.scan_secret_key")
 	if scanSecretStr != "" {

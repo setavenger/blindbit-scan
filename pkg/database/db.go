@@ -92,8 +92,6 @@ func TryLoadingControllerFromDisk(
 			return nil, err
 		}
 
-		logging.L.Trace().Any("apps", apps).Msg("")
-
 		return nwc.NewNip47ControllerFromApps(ctx, apps), nil
 	}
 

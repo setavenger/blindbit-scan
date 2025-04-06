@@ -52,7 +52,7 @@ func (s *NwcServer) GetInfoHandler() nwc.Nip47ControllerHandlerFunc {
 func (s *NwcServer) GetBalanceHandler() nwc.Nip47ControllerHandlerFunc {
 	return func(ctx context.Context, nr nwc.Nip47Request) (data []byte, err error) {
 		rawData := nwc.GetBalanceResponseBody{
-			Balance: int64(s.Daemon.Wallet.FreeBalance()),
+			Balance: int64(s.Daemon.Wallet.FreeBalance()) * 1000, // muliply by 1000 nwc is in mSats
 		}
 		var resultData []byte
 		resultData, err = json.Marshal(rawData)
