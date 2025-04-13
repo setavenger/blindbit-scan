@@ -1,4 +1,4 @@
-# blindbit-scan
+# BlindBit Scan
 
 A scan-only client for BIP 352 silent payment wallets. The program runs in the background and connects to a blindbit-oracle instance (and optionally an electrum server). Found UTXOs can be retrieved via a simple HTTP endpoint.
 
@@ -17,7 +17,7 @@ A simple frontend exists as well. [The frontend for BlindBit Scan](https://githu
 ### Run
 - setup the blindbit.toml with the correct configurations
 - NOTE: [devtools](https://github.com/setavenger/blindbitd/tree/master/devtools) from [blindbitd](https://github.com/setavenger/blindbitd) can help get the scanonly keys for blindbit-scan
-- run the binary pointing to the datadirectory containing the blindbit.toml
+- run the binary pointing to the data directory containing the blindbit.toml
 ```bash
 blindbit-scan --datadir /directory/containing/configfile
 ```
@@ -69,3 +69,27 @@ blindbit-scan --datadir /directory/containing/configfile
 }
 ```
 
+`/new-nwc-connection` - creates a new NWC connection string
+```json
+{
+  "uri": "nostr+walletconnect://28c1d46a01f54ed3a344b906a92fa1947b53be85d880ccfef292cced35cf33cc?relay=wss://relay.getalby.com/v1&secret=bea5e03730764f0d70fb5b28939cd6e03c3c33323b97aa89971991f328b9da43"
+}
+```
+
+## Nostr Wallet Connect
+In addition to the standard UTXO endpoints BlindBit Scan allows for a NWC style
+communication between clients and this server. The user can call
+`new-nwc-connection` and use the received connection string in [Blindbit
+Spend](https://github.com/setavenger/blindbit-spend) or in the PWA app
+[BlindBit-PWA](https://github.com/setavenger/blindbit-silentium). The two
+methods supported are `get_info` and `list_utxos`. `get_info` has pretty much
+same format as the standard Nostr Wallet Connect spec. `list_utxos` has the
+same output as the endpoint `/utxos` just in the NWC format. Please open an
+issue if you find something not working properly.
+
+## Support me
+I'm building and maintaining the BlindBit suite in my free time. I'm grateful
+for any contributions, be it feedback, PRs or hard sats.
+
+LNURL: `setor@getalby.com`
+SP-Address: `sp1qqwgst7mthsl46hkcek6ets58rfunr4qaxpchuegs09m6uy3tm4xysqmdf6xr9rh68stzzhshjt6z7288tc7eqts65ls4sg2dg6aexlx595f5wa7u`
