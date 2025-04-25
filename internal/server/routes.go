@@ -1,15 +1,12 @@
 package server
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/setavenger/blindbit-scan/internal/config"
-	"github.com/setavenger/blindbit-scan/pkg/database"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
 	"github.com/setavenger/blindbit-scan/pkg/wallet"
 	"github.com/setavenger/go-bip352"
@@ -63,11 +60,12 @@ func (s *Server) PostRescan(c *gin.Context) {
 }
 
 type SetupReq struct {
-	ScanSecret  string `json:"secret_sec"`
+	ScanSecret  string `json:"scan_secret"`
 	SpendPublic string `json:"spend_pub"`
 	BirthHeight uint   `json:"birth_height"`
 }
 
+// todo: fix block after calling while sync is running
 func (s *Server) PutSilentPaymentKeys(c *gin.Context) {
 	var err error
 
@@ -88,7 +86,11 @@ func (s *Server) PutSilentPaymentKeys(c *gin.Context) {
 		c.Abort()
 		return
 	}
-	viper.Set("wallet.scan_secret_key", keys.ScanSecret)
+	if len(scanSecret) != 32 {
+		c.JSON(http.StatusInternalServerError, gin.H{"err": "scan secret must be 32 bytes"})
+		c.Abort()
+		return
+	}
 
 	spendPub, err := hex.DecodeString(keys.SpendPublic)
 	if err != nil {
@@ -96,13 +98,21 @@ func (s *Server) PutSilentPaymentKeys(c *gin.Context) {
 		c.Abort()
 		return
 	}
-	viper.Set("wallet.spend_pub_key", keys.SpendPublic)
-	viper.Set("wallet.birth_height", keys.BirthHeight)
+	if len(spendPub) != 33 {
+		c.JSON(http.StatusInternalServerError, gin.H{"err": "spend public key must be 33 bytes"})
+		c.Abort()
+		return
+	}
 
 	// we only write if nothing before failed
 	if keys.BirthHeight < 1 {
 		keys.BirthHeight = 1
 	}
+
+	viper.Set("wallet.scan_secret_key", keys.ScanSecret)
+	viper.Set("wallet.spend_pub_key", keys.SpendPublic)
+	viper.Set("wallet.birth_height", keys.BirthHeight)
+
 	config.BirthHeight = uint64(keys.BirthHeight)
 	config.ScanSecretKey = bip352.ConvertToFixedLength32(scanSecret)
 	config.SpendPubKey = bip352.ConvertToFixedLength33(spendPub)
@@ -116,17 +126,22 @@ func (s *Server) PutSilentPaymentKeys(c *gin.Context) {
 		return
 	}
 
-	go func() {
-		if s.Daemon.Wallet == nil || bytes.Equal(s.Daemon.Wallet.SecretKeyScan[:], make([]byte, 32)) || bytes.Equal(s.Daemon.Wallet.PubKeySpend[:], make([]byte, 33)) {
-			config.KeysReadyChan <- struct{}{}
-		}
-	}()
+	// go func() {
+	// 	if s.Daemon.Wallet == nil || bytes.Equal(s.Daemon.Wallet.SecretKeyScan[:], make([]byte, 32)) || bytes.Equal(s.Daemon.Wallet.PubKeySpend[:], make([]byte, 33)) {
+	// 		config.KeysReadyChan <- struct{}{}
+	// 	}
+	// }()
 
 	var newWallet *wallet.Wallet
 
 	// logging.L.Trace().Any("birth", config.BirthHeight).Any("l-count", config.LabelCount).Any("scan", config.ScanSecretKey).Any("spend", config.SpendPubKey).Msg("config info")
 
-	newWallet, err = wallet.SetupWallet(config.BirthHeight, config.LabelCount, config.ScanSecretKey, config.SpendPubKey)
+	newWallet, err = wallet.SetupWallet(
+		config.BirthHeight,
+		config.LabelCount,
+		config.ScanSecretKey,
+		config.SpendPubKey,
+	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"err": err.Error()})
 		c.Abort()
@@ -143,25 +158,16 @@ func (s *Server) PutSilentPaymentKeys(c *gin.Context) {
 
 	s.Daemon.Wallet = newWallet
 
-	// logging.L.Debug().Any("wallet", s.Daemon.Wallet).Msg("")
-
-	go func() {
-		<-time.After(5 * time.Second)
-		err = s.Daemon.ContinuousScan()
-		if err != nil {
-			logging.L.Err(err).Msg("")
-			return
-		}
-	}()
-
-	// logging.L.Trace().Any("wallet", s.Daemon.Wallet).Msg("")
-
 	address, err := s.Daemon.Wallet.GenerateAddress()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"err": err.Error()})
 		c.Abort()
 		return
 	}
+
+	// no routine to alert the caller if something is wrong
+	config.KeysReadyChan <- struct{}{}
+
 	c.JSON(http.StatusOK, gin.H{"address": address})
 }
 
@@ -173,7 +179,7 @@ func (s *Server) NewNwcConnection(c *gin.Context) {
 		return
 	}
 
-	err = database.WriteNip47ControllerToDB(config.PathDbNWC, s.Nip47Controller)
+	err = s.Daemon.DBWriter.WriteNip47ControllerToDB(config.PathDbNWC, s.Nip47Controller)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"err": err.Error()})
 		c.Abort()

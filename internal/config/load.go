@@ -49,6 +49,7 @@ func LoadConfigs(pathToConfig string) (err error) {
 	viper.BindEnv("auth.pass", "AUTH_PASS")
 
 	viper.BindEnv("log_level", "LOG_LEVEL")
+	viper.BindEnv("privacy_mode", "PRIVACY_MODE")
 
 	// app seed is for umbrel inputs
 	// viper.BindEnv("external_app_seed", "EXTERNAL_APP_SEED")
@@ -68,6 +69,7 @@ func LoadConfigs(pathToConfig string) (err error) {
 	viper.SetDefault("wallet.birth_height", 840000)
 
 	viper.SetDefault("log_level", "info")
+	viper.SetDefault("privacy_mode", false)
 
 	// app seed
 	// viper.SetDefault("external_app_seed", "") // we normally don't use it
@@ -90,11 +92,13 @@ func LoadConfigs(pathToConfig string) (err error) {
 		AutomaticScanInterval = 1 * time.Minute
 	}
 
+	PrivateMode = viper.GetBool("privacy_mode")
+
 	// Basic Auth Data
 	AuthUser = viper.GetString("auth.user")
 	AuthPass = viper.GetString("auth.pass")
 
-	if AuthUser == "" || AuthPass == "" {
+	if (AuthUser == "" || AuthPass == "") && !PrivateMode {
 		err := errors.New("config is missing auth settings")
 		slog.Error(err.Error())
 		return err

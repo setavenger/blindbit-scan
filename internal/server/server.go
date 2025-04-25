@@ -44,7 +44,11 @@ func (s *Server) RunServer() error {
 		config.AuthUser: config.AuthPass,
 	}))
 
-	router.PUT("/new-keys", s.PutSilentPaymentKeys)
+	// we only allow this in simple mode
+	// too much complexity in private mode
+	if !config.PrivateMode {
+		router.PUT("/new-keys", s.PutSilentPaymentKeys)
+	}
 
 	// BlindBit adaptation of Nostr Wallet Connect
 	router.POST("/new-nwc-connection", s.NewNwcConnection)

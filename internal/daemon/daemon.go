@@ -22,38 +22,36 @@ type Daemon struct {
 	Wallet            *wallet.Wallet
 	NewBlockChan      <-chan *electrum.SubscribeHeadersResult
 	TriggerRescanChan chan uint64
+	DBWriter          *database.DBWriter
 }
 
 // Will try to load a wallet from disk or will create a new one based on the blindbit.toml config-file
-func SetupDaemon(path string) (*Daemon, error) {
+func (d *Daemon) SetupExternalClients() (err error) {
 	clientBlindBit := networking.ClientBlindBit{BaseUrl: config.BlindBitServerAddress}
 	var clientElectrum *electrum.Client
-	var err error
 
 	if config.UseElectrum {
 		logging.L.Info().Msg("connecting to Electrum server")
 		clientElectrum, err = networking.CreateElectrumClient(config.ElectrumServerAddress, config.ElectrumTorProxyHost)
 		if err != nil {
 			logging.L.Err(err).Msg("")
-			return nil, err
+			return err
 		}
 	}
 
-	w, err := database.TryLoadWalletFromDisk(path)
-	if err != nil {
-		logging.L.Err(err).Msg("")
-		return nil, err
-	}
-	d, err := NewDaemon(w, &clientBlindBit, clientElectrum)
-	if err != nil {
-		logging.L.Err(err).Msg("")
-		return nil, err
-	}
+	d.ClientBlindBit = &clientBlindBit
+	d.ClientElectrum = clientElectrum
 
-	return d, err
+	return nil
 }
 
-func NewDaemon(wallet *wallet.Wallet, clientBlindBit *networking.ClientBlindBit, clientElectrum *electrum.Client) (*Daemon, error) {
+func NewDaemon(
+	wallet *wallet.Wallet,
+	clientBlindBit *networking.ClientBlindBit,
+	clientElectrum *electrum.Client,
+) (
+	*Daemon, error,
+) {
 	var channel <-chan *electrum.SubscribeHeadersResult
 	var err error
 	if config.UseElectrum {
@@ -106,6 +104,10 @@ func SetupDaemonNoWallet() (*Daemon, error) {
 	return d, err
 }
 
+func (d *Daemon) SetDbWriter(dbWriter *database.DBWriter) {
+	d.DBWriter = dbWriter
+}
+
 // ResetDaemonAndWallet deletes the stored wallet DB
 // used when new keys are added such that scanning continues from scratch
 func (d *Daemon) ResetDaemonAndWallet() (err error) {
@@ -128,5 +130,5 @@ func (d *Daemon) Cancel() {
 }
 
 func (d *Daemon) SaveWalletToDB() (err error) {
-	return database.WriteWalletToDB(config.PathDbWallet, d.Wallet)
+	return d.DBWriter.WriteWalletToDB(config.PathDbWallet, d.Wallet)
 }
