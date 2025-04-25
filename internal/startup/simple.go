@@ -35,10 +35,10 @@ func SetupNewInstanceSimpleMode() (d *daemon.Daemon, err error) {
 	d.SetDbWriter(&database.DBWriter{Password: ""})
 
 	if config.ScanSecretKey != [32]byte{} && config.SpendPubKey != [33]byte{} {
-		w := &wallet.Wallet{
-			SecretKeyScan: config.ScanSecretKey,
-			PubKeySpend:   config.SpendPubKey,
-			BirthHeight:   config.BirthHeight,
+		w, err := wallet.SetupWallet(config.BirthHeight, config.LabelCount, config.ScanSecretKey, config.SpendPubKey)
+		if err != nil {
+			logging.L.Panic().Err(err).
+				Msg("startup failed, could not setup wallet")
 		}
 		d.Wallet = w
 	}

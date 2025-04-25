@@ -89,13 +89,17 @@ func SetupNewInstancePrivateMode() (d *daemon.Daemon, err error) {
 			Msg("startup failed, could only produce daemon hull")
 	}
 
-	d.Wallet = &wallet.Wallet{
-		SecretKeyScan: setup.ScanSecretKey,
-		PubKeySpend:   setup.SpendPubKey,
-		BirthHeight:   setup.BirthHeight,
-		Labels:        make(wallet.LabelMap),
-		UTXOMapping:   make(wallet.UTXOMapping),
+	if setup.LabelCount == 0 {
+		setup.LabelCount = 5
 	}
+
+	w, err := wallet.SetupWallet(setup.BirthHeight, setup.LabelCount, setup.ScanSecretKey, setup.SpendPubKey)
+	if err != nil {
+		logging.L.Err(err).
+			Msg("startup failed, could not setup wallet")
+		return nil, err
+	}
+	d.Wallet = w
 
 	d.SetDbWriter(&database.DBWriter{Password: setup.Password})
 
