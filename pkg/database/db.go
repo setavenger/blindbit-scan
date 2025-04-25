@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"github.com/setavenger/blindbit-scan/internal/config"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
 	"github.com/setavenger/blindbit-scan/pkg/networking/nwc"
+	"github.com/setavenger/blindbit-scan/pkg/types"
 	"github.com/setavenger/blindbit-scan/pkg/wallet"
 )
 
@@ -71,8 +73,11 @@ func (w *DBWriter) EncryptData(data []byte) ([]byte, error) {
 
 // AES GCM encryption function
 func EncryptData(data []byte, password string) ([]byte, error) {
-	// Create a new AES cipher block using the password
-	block, err := aes.NewCipher([]byte(password))
+	// Hash the password to get a 32-byte key
+	key := sha256.Sum256([]byte(password))
+
+	// Create a new AES cipher block using the hashed key
+	block, err := aes.NewCipher(key[:])
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +100,11 @@ func EncryptData(data []byte, password string) ([]byte, error) {
 }
 
 func DecryptData(data []byte, password string) ([]byte, error) {
-	// Create a new AES cipher block using the password
-	block, err := aes.NewCipher([]byte(password))
+	// Hash the password to get a 32-byte key
+	key := sha256.Sum256([]byte(password))
+
+	// Create a new AES cipher block using the hashed key
+	block, err := aes.NewCipher(key[:])
 	if err != nil {
 		return nil, err
 	}
@@ -202,4 +210,14 @@ func (w *DBWriter) TryLoadingControllerFromDisk(
 	logging.L.Trace().Str("path", path).Msg("No NWC apps data on disk")
 
 	return nwc.NewNip47Controller(ctx), nil
+}
+
+func (w *DBWriter) SaveAuthCredentials(creds *types.AuthCredentials) error {
+	return w.WriteToDB(config.PathDbAuth, creds)
+}
+
+func (w *DBWriter) LoadAuthCredentials() (*types.AuthCredentials, error) {
+	var creds types.AuthCredentials
+	err := w.ReadFromDB(config.PathDbAuth, &creds)
+	return &creds, err
 }

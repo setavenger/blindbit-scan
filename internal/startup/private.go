@@ -1,17 +1,25 @@
 package startup
 
 import (
+	"context"
+
 	"github.com/setavenger/blindbit-scan/internal"
 	"github.com/setavenger/blindbit-scan/internal/config"
 	"github.com/setavenger/blindbit-scan/internal/daemon"
+	nwcserver "github.com/setavenger/blindbit-scan/internal/nwc_server"
 	"github.com/setavenger/blindbit-scan/pkg/database"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
+	"github.com/setavenger/blindbit-scan/pkg/networking/nwc"
 	"github.com/setavenger/blindbit-scan/pkg/wallet"
 )
 
-func StartupWithPrivateMode() (d *daemon.Daemon, err error) {
-	if internal.CheckIfFileExists(config.PathDbWallet) {
+func StartupWithPrivateMode(nip47Controller *nwc.Nip47Controller) (d *daemon.Daemon, err error) {
+	walletExists := internal.CheckIfFileExists(config.PathDbWallet)
+	authExists := internal.CheckIfFileExists(config.PathDbAuth)
+
+	if walletExists && authExists {
 		// we need to load the existing instance, wait for unlock api call
+		logging.L.Info().Msg("Waiting for unlock request")
 		d, err = SetupExistingInstancePrivateMode()
 		if err != nil {
 			logging.L.Panic().Err(err).
@@ -19,12 +27,36 @@ func StartupWithPrivateMode() (d *daemon.Daemon, err error) {
 		}
 	} else {
 		// we need to setup a whole new instance and wait for Setup rest api call
+		logging.L.Info().Msg("Waiting for setup-instance request")
 		d, err = SetupNewInstancePrivateMode()
 		if err != nil {
 			logging.L.Panic().Err(err).
 				Msg("startup failed, could produce daemon hull")
 		}
 	}
+
+	// Setup BlindBit Nostr Wallet Connect
+	nwcServer := nwcserver.NewNwcServer(d)
+
+	var controller *nwc.Nip47Controller
+	logging.L.Info().Msg("attempting to load NWC apps from disk")
+	controller, err = d.DBWriter.TryLoadingControllerFromDisk(context.Background(), config.PathDbNWC)
+	if err != nil {
+		logging.L.Panic().Err(err).Msg("failed to create new controller")
+	}
+	logging.L.Trace().Any("apps", controller.Apps()).Msg("controller data")
+
+	controller.RegisterHandler(nwc.GET_INFO_METHOD, nwcServer.GetInfoHandler())
+	controller.RegisterHandler(nwc.GET_BALANCE_METHOD, nwcServer.GetBalanceHandler())
+	controller.RegisterHandler(nwc.LIST_UTXOS_METHOD, nwcServer.ListUtxosHandler())
+
+	err = controller.ConnectRelay()
+	if err != nil {
+		logging.L.Panic().Err(err).Msg("failed to connect to relay")
+	}
+	go controller.StartListening()
+
+	*nip47Controller = *controller
 
 	return d, nil
 }
@@ -61,6 +93,8 @@ func SetupNewInstancePrivateMode() (d *daemon.Daemon, err error) {
 		SecretKeyScan: setup.ScanSecretKey,
 		PubKeySpend:   setup.SpendPubKey,
 		BirthHeight:   setup.BirthHeight,
+		Labels:        make(wallet.LabelMap),
+		UTXOMapping:   make(wallet.UTXOMapping),
 	}
 
 	d.SetDbWriter(&database.DBWriter{Password: setup.Password})

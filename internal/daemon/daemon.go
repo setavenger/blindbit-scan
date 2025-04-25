@@ -9,6 +9,7 @@ import (
 	"github.com/setavenger/blindbit-scan/pkg/database"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
 	"github.com/setavenger/blindbit-scan/pkg/networking" // todo move all blindbitd/src/*
+	"github.com/setavenger/blindbit-scan/pkg/types"
 	"github.com/setavenger/blindbit-scan/pkg/wallet"
 	"github.com/setavenger/go-electrum/electrum"
 )
@@ -22,6 +23,7 @@ type Daemon struct {
 	Wallet            *wallet.Wallet
 	NewBlockChan      <-chan *electrum.SubscribeHeadersResult
 	TriggerRescanChan chan uint64
+	AuthCredentials   *types.AuthCredentials
 	DBWriter          *database.DBWriter
 }
 
@@ -130,5 +132,23 @@ func (d *Daemon) Cancel() {
 }
 
 func (d *Daemon) SaveWalletToDB() (err error) {
+	if d.Wallet == nil {
+		return nil
+	}
 	return d.DBWriter.WriteWalletToDB(config.PathDbWallet, d.Wallet)
+}
+
+func (d *Daemon) LoadAuthCredentials() error {
+	var creds types.AuthCredentials
+	if err := d.DBWriter.ReadFromDB(config.PathDbAuth, &creds); err != nil {
+		return err
+	}
+	d.AuthCredentials = &creds
+	config.SetAuthCredentials(&creds)
+	return nil
+}
+
+func (d *Daemon) Unlock(password string) error {
+	d.DBWriter = &database.DBWriter{Password: password}
+	return d.LoadAuthCredentials()
 }
