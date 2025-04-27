@@ -6,7 +6,6 @@ import (
 
 	"github.com/btcsuite/btcd/btcutil/base58"
 	petname "github.com/dustinkirkland/golang-petname"
-	"github.com/setavenger/blindbit-scan/pkg/logging"
 	"github.com/setavenger/blindbit-scan/pkg/types"
 )
 
@@ -16,11 +15,10 @@ var (
 
 func GenerateAuthCredentials() *types.AuthCredentials {
 	username := petname.Generate(2, "-")
-	randomBytes := make([]byte, 8)
-	if _, err := rand.Read(randomBytes); err != nil {
-		logging.L.Panic().Err(err).Msg("failed to generate random bytes")
-		return nil
-	}
+	randomBytes := make([]byte, 16)
+
+	rand.Read(randomBytes) // never returns an error
+
 	password := base58.Encode(randomBytes)
 
 	return &types.AuthCredentials{
