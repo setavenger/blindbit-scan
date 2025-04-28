@@ -9,7 +9,7 @@ import (
 	"github.com/setavenger/blindbit-scan/internal/daemon"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
 	"github.com/setavenger/blindbit-scan/pkg/networking/nwc"
-	"github.com/setavenger/blindbitd/src/utils"
+	"github.com/setavenger/blindbit-scan/pkg/utils"
 )
 
 func StartNewServer(

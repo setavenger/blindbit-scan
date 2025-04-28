@@ -1,7 +1,7 @@
 package config
 
 // outsource to a common package as this is used across several blindbit programs
-import "github.com/setavenger/blindbitd/src/utils"
+import "github.com/setavenger/blindbit-scan/pkg/utils"
 
 var (
 	DirectoryPath = "~/.blindbit-scan"
