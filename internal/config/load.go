@@ -3,7 +3,6 @@ package config
 import (
 	"encoding/hex"
 	"log"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -27,8 +26,7 @@ func LoadConfigs(pathToConfig string) (err error) {
 
 	// Handle errors reading the config file
 	if err = viper.ReadInConfig(); err != nil {
-		logging.L.Err(err).Msg("Error reading config file")
-		return
+		logging.L.Warn().Err(err).Msg("Error reading config file")
 	}
 
 	// map ENV var names
@@ -99,8 +97,8 @@ func LoadConfigs(pathToConfig string) (err error) {
 	AuthPass = viper.GetString("auth.pass")
 
 	if (AuthUser == "" || AuthPass == "") && !PrivateMode {
-		err := errors.New("config is missing auth settings")
-		slog.Error(err.Error())
+		err = errors.New("config is missing auth settings")
+		logging.L.Err(err).Msg("")
 		return err
 	}
 
