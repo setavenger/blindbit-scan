@@ -167,6 +167,9 @@ func (c *Nip47Controller) StartListening() {
 	for {
 		select {
 		case ev := <-sub.Events:
+			if ev == nil {
+				continue
+			}
 			logging.L.Info().Str("event-id", ev.ID).Msg("received event")
 			go c.processEvent(ev)
 		case <-c.ctx.Done():

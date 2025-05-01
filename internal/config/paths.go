@@ -1,7 +1,7 @@
 package config
 
 // outsource to a common package as this is used across several blindbit programs
-import "github.com/setavenger/blindbitd/src/utils"
+import "github.com/setavenger/blindbit-scan/pkg/utils"
 
 var (
 	DirectoryPath = "~/.blindbit-scan"
@@ -10,6 +10,7 @@ var (
 	PathConfig   string
 	PathDbWallet string
 	PathDbNWC    string
+	PathDbAuth   string
 )
 
 // needed for the flag default
@@ -20,6 +21,7 @@ const PathEndingConfig = "/blindbit.toml"
 const PathEndingWallet = dataPath + "/wallet"
 const PathEndingNWC = dataPath + "/nwc"
 const PathEndingKeys = dataPath + "/keys"
+const PathEndingBasicAuth = dataPath + "/basic_auth"
 
 func SetPaths(baseDirectory string) {
 	if baseDirectory != "" {
@@ -34,7 +36,7 @@ func SetPaths(baseDirectory string) {
 	PathConfig = DirectoryPath + PathEndingConfig
 	PathDbWallet = DirectoryPath + PathEndingWallet
 	PathDbNWC = DirectoryPath + PathEndingNWC
-
+	PathDbAuth = DirectoryPath + PathEndingBasicAuth
 	// create the directories
 	utils.TryCreateDirectoryPanic(DirectoryPath)
 
