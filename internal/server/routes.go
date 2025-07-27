@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/setavenger/blindbit-scan/internal"
 	"github.com/setavenger/blindbit-scan/internal/config"
 	"github.com/setavenger/blindbit-scan/pkg/database"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
@@ -16,6 +17,10 @@ import (
 
 func (s *Server) GetCurrentHeight(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"height": s.Daemon.Wallet.LastScanHeight})
+}
+
+func (s *Server) GetStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": internal.InstanceStatus()})
 }
 
 func (s *Server) GetUtxos(c *gin.Context) {

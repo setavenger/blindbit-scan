@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -36,10 +37,13 @@ func (s *Server) RunServer() error {
 
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "PUT"},
+		AllowMethods:     []string{"GET", "PUT", "POST"},
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		MaxAge:           12 * time.Hour,
 		AllowCredentials: true,
 	}))
+
+	router.GET("/status", s.GetStatus)
 
 	// we only allow this in simple mode
 	// too much complexity in private mode

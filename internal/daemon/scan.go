@@ -65,8 +65,7 @@ func (d *Daemon) syncBlock(blockHeight uint64) ([]*wallet.OwnedUTXO, error) {
 			outputPubKey33 := bip352.ConvertToFixedLength33(append([]byte{0x02}, outputPubKey[:]...))
 			labelPotentialOutputPrep, err := bip352.AddPublicKeys(outputPubKey33, label.PubKey)
 			if err != nil {
-				logging.L.Err(err).Msg("")
-				panic(err)
+				logging.L.Panic().Err(err).Msg("")
 			}
 
 			tweakToScriptMap[bip352.ConvertToFixedLength32(labelPotentialOutputPrep[1:])] = TweakScriptMap{
