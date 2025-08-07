@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	github.com/btcsuite/btcd v0.24.2
-	github.com/btcsuite/btcd/btcec/v2 v2.3.4
+	github.com/btcsuite/btcd/btcec/v2 v2.3.5
 	github.com/btcsuite/btcd/btcutil v1.1.6
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
 	github.com/btcsuite/goleveldb v1.0.0
@@ -13,7 +13,8 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/nbd-wtf/go-nostr v0.50.0
 	github.com/rs/zerolog v1.34.0
-	github.com/setavenger/go-bip352 v0.1.8-0.20250807125845-136879952399
+	github.com/setavenger/blindbit-lib v0.0.0-20250807130019-f9642edb8c97
+	github.com/setavenger/go-bip352 v0.1.8-0.20250807131225-a74b7fe83681
 	github.com/setavenger/go-electrum v1.1.1
 	github.com/spf13/viper v1.19.0
 )
@@ -54,7 +55,6 @@ require (
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
-	github.com/setavenger/blindbit-lib v0.0.0-20250601142252-0c5dd9a697be // indirect
 	github.com/setavenger/go-libsecp256k1 v0.0.0-20250601142217-61f26e074fd5 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect

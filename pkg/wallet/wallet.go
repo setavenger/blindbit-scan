@@ -6,9 +6,9 @@ import (
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/setavenger/blindbit-lib/types"
 	"github.com/setavenger/blindbit-scan/internal/config"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
-	"github.com/setavenger/blindbit-scan/pkg/types"
 	"github.com/setavenger/blindbit-scan/pkg/utils"
 	"github.com/setavenger/go-bip352"
 )
@@ -104,17 +104,17 @@ func (w *Wallet) generateNextLabel() error {
 	}
 
 	// we set the next m according to the length/ number of items in the labels map
-	label, err := bip352.CreateLabel(w.SecretKeyScan, uint32(len(w.Labels)))
+	label, err := bip352.CreateLabel(w.SecretKeyScan.ToArrayPtr(), uint32(len(w.Labels)))
 	if err != nil {
 		return err
 	}
 
-	BmKey, err := bip352.AddPublicKeys(w.PubKeySpend, label.PubKey)
+	BmKey, err := bip352.AddPublicKeys(w.PubKeySpend.ToArrayPtr(), &label.PubKey)
 	if err != nil {
 		logging.L.Err(err).Msg("")
 		return err
 	}
-	address, err := bip352.CreateAddress(w.PubKeyScan, BmKey, mainnet, 0)
+	address, err := bip352.CreateAddress(w.PubKeyScan.ToArrayPtr(), &BmKey, mainnet, 0)
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func (w *Wallet) GenerateAddress() (string, error) {
 	if config.ChainParams.Name == chaincfg.MainNetParams.Name {
 		mainnet = true
 	}
-	address, err := bip352.CreateAddress(w.PubKeyScan, w.PubKeySpend, mainnet, 0)
+	address, err := bip352.CreateAddress(w.PubKeyScan.ToArrayPtr(), w.PubKeySpend.ToArrayPtr(), mainnet, 0)
 	if err != nil {
 		log.Println(err)
 		return "", err
