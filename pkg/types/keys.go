@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/setavenger/go-bip352"
+	"github.com/setavenger/blindbit-lib/utils"
 )
 
 /*
@@ -28,7 +28,7 @@ func (s *SecretKey) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	key := bip352.ConvertToFixedLength32(dataBytes)
+	key := utils.ConvertToFixedLength32(dataBytes)
 	copy(s[:], key[:])
 	return err
 }
@@ -50,7 +50,7 @@ func (s *PublicKey) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	key := bip352.ConvertToFixedLength33(dataBytes)
+	key := utils.ConvertToFixedLength33(dataBytes)
 	copy(s[:], key[:])
 	return err
 }

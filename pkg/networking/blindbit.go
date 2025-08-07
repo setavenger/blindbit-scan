@@ -8,9 +8,8 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/setavenger/blindbit-lib/utils"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
-	"github.com/setavenger/blindbit-scan/pkg/utils"
-	"github.com/setavenger/go-bip352"
 )
 
 /*
@@ -186,7 +185,7 @@ func (c ClientBlindBit) GetFilter(blockHeight uint64, filterType FilterType) (*F
 	filter := &Filter{
 		FilterType:  data.FilterType,
 		BlockHeight: data.BlockHeight,
-		BlockHash:   bip352.ConvertToFixedLength32(blockHash),
+		BlockHash:   utils.ConvertToFixedLength32(blockHash),
 		Data:        filterData,
 	}
 
@@ -252,12 +251,12 @@ func (c ClientBlindBit) GetUTXOs(blockHeight uint64) ([]*UTXOServed, error) {
 		}
 
 		utxo := &UTXOServed{
-			Txid:         bip352.ConvertToFixedLength32(txidBytes),
+			Txid:         utils.ConvertToFixedLength32(txidBytes),
 			Vout:         data.Vout,
 			Amount:       data.Amount,
 			BlockHeight:  data.BlockHeight,
-			BlockHash:    bip352.ConvertToFixedLength32(blockHashBytes),
-			ScriptPubKey: utils.ConvertToFixedLength34(scriptPubKeyBytes),
+			BlockHash:    utils.ConvertToFixedLength32(blockHashBytes),
+			ScriptPubKey: [34]byte(scriptPubKeyBytes),
 			Timestamp:    data.Timestamp,
 			Spent:        data.Spent,
 		}
@@ -308,7 +307,7 @@ func (c ClientBlindBit) GetSpentOutpointsIndex(blockHeight uint64) (SpentOutpoin
 		return SpentOutpointsIndex{}, err
 	}
 
-	output.BlockHash = bip352.ConvertToFixedLength32(blockHashBytes)
+	output.BlockHash = utils.ConvertToFixedLength32(blockHashBytes)
 
 	for _, hexStr := range respData.Data {
 		// Each string should be exactly 66 characters long (33 bytes)
