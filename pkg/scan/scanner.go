@@ -74,7 +74,10 @@ func ScanDataOptimized(
 	// Map Tweaks to ScriptPubKey - precompute all possible script pubkeys
 	tweakToScriptMap := make(map[[32]byte]TweakScriptMap)
 
-	scanSecretKey := s.ScanSecretKey()
+	scanSecretKeyBytes := s.ScanSecretKey()
+
+	var scanSecretKey [32]byte
+	copy(scanSecretKey[:], scanSecretKeyBytes[:])
 	for _, tweak := range tweaks {
 		sharedSecret, err := bip352.CreateSharedSecret(&tweak, &scanSecretKey, nil)
 		if err != nil {
@@ -156,9 +159,13 @@ func ScanDataOptimized(
 			txOutputs = append(txOutputs, fixedLengthOutput)
 		}
 
-		spendPubKey := s.SpendPubKey()
+		spendPubKeyBytes := s.SpendPubKey()
+		var scanKey [32]byte
+		copy(scanKey[:], scanSecretKeyBytes[:])
+		var spendPubKey [33]byte
+		copy(spendPubKey[:], spendPubKeyBytes[:])
 		foundOutputsPerTweak, err := bip352.ReceiverScanTransaction(
-			s.ScanSecretKey(),
+			scanKey,
 			&spendPubKey,
 			labelsToCheck,
 			txOutputs,
