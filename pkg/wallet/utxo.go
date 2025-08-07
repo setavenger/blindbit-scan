@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/setavenger/blindbit-lib/utils"
 	"github.com/setavenger/go-bip352"
 )
 
@@ -60,8 +61,8 @@ func ConvertLabelJSONToLabel(v Bip352LabelJSON) (*bip352.Label, error) {
 		return nil, err
 	}
 	label := &bip352.Label{
-		PubKey:  bip352.ConvertToFixedLength33(pubKey),
-		Tweak:   bip352.ConvertToFixedLength32(tweak),
+		PubKey:  utils.ConvertToFixedLength33(pubKey),
+		Tweak:   utils.ConvertToFixedLength32(tweak),
 		Address: v.Address,
 		M:       v.M,
 	}
