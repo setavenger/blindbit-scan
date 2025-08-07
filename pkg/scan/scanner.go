@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/setavenger/blindbit-lib/utils"
 	"github.com/setavenger/blindbit-scan/pkg/networking"
 	"github.com/setavenger/blindbit-scan/pkg/wallet"
 	"github.com/setavenger/go-bip352"
@@ -31,13 +32,14 @@ func IdentifyTxOuputs(
 	foundOutputs []*bip352.FoundOutput,
 	err error,
 ) {
+	spendPubKey := s.SpendPubKey()
 	for _, tweak := range tweaks {
 		foundOutputsPerTweak, err := bip352.ReceiverScanTransaction(
 			s.ScanSecretKey(),
-			s.SpendPubKey(),
+			&spendPubKey,
 			s.Labels(),
 			outputs,
-			tweak,
+			&tweak,
 			nil,
 		)
 		if err != nil {
@@ -72,13 +74,14 @@ func ScanDataOptimized(
 	// Map Tweaks to ScriptPubKey - precompute all possible script pubkeys
 	tweakToScriptMap := make(map[[32]byte]TweakScriptMap)
 
+	scanSecretKey := s.ScanSecretKey()
 	for _, tweak := range tweaks {
-		sharedSecret, err := bip352.CreateSharedSecret(tweak, s.ScanSecretKey(), nil)
+		sharedSecret, err := bip352.CreateSharedSecret(&tweak, &scanSecretKey, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create shared secret: %w", err)
 		}
 
-		outputPubKey, err := bip352.CreateOutputPubKey(sharedSecret, s.SpendPubKey(), 0)
+		outputPubKey, err := bip352.CreateOutputPubKey(*sharedSecret, s.SpendPubKey(), 0)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create output pubkey: %w", err)
 		}
@@ -90,30 +93,32 @@ func ScanDataOptimized(
 
 		// also precompute for labels
 		for _, label := range labelsToCheck {
-			outputPubKey33 := bip352.ConvertToFixedLength33(append([]byte{0x02}, outputPubKey[:]...))
-			labelPotentialOutputPrep, err := bip352.AddPublicKeys(outputPubKey33, label.PubKey)
+			outputPubKey33 := utils.ConvertToFixedLength33(append([]byte{0x02}, outputPubKey[:]...))
+			labelPotentialOutputPrep, err := bip352.AddPublicKeys(&outputPubKey33, &label.PubKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to add public keys: %w", err)
 			}
 
-			tweakToScriptMap[bip352.ConvertToFixedLength32(labelPotentialOutputPrep[1:])] = TweakScriptMap{
+			tweakToScriptMap[utils.ConvertToFixedLength32(labelPotentialOutputPrep[1:])] = TweakScriptMap{
 				Tweak:        tweak,
-				ScriptPubKey: bip352.ConvertToFixedLength32(labelPotentialOutputPrep[1:]),
+				ScriptPubKey: utils.ConvertToFixedLength32(labelPotentialOutputPrep[1:]),
 			}
 
-			negatedLabelPubKey, err := bip352.NegatePublicKey(label.PubKey)
+			var negatedLabelPubKey [33]byte
+			copy(negatedLabelPubKey[:], label.PubKey[:])
+			err = bip352.NegatePublicKey(&negatedLabelPubKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to negate public key: %w", err)
 			}
 
-			labelPotentialOutputPrepNegated, err := bip352.AddPublicKeys(outputPubKey33, negatedLabelPubKey)
+			labelPotentialOutputPrepNegated, err := bip352.AddPublicKeys(&outputPubKey33, &negatedLabelPubKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to add negated public keys: %w", err)
 			}
 
-			tweakToScriptMap[bip352.ConvertToFixedLength32(labelPotentialOutputPrepNegated[1:])] = TweakScriptMap{
+			tweakToScriptMap[utils.ConvertToFixedLength32(labelPotentialOutputPrepNegated[1:])] = TweakScriptMap{
 				Tweak:        tweak,
-				ScriptPubKey: bip352.ConvertToFixedLength32(labelPotentialOutputPrepNegated[1:]),
+				ScriptPubKey: utils.ConvertToFixedLength32(labelPotentialOutputPrepNegated[1:]),
 			}
 		}
 	}
@@ -127,7 +132,7 @@ func ScanDataOptimized(
 	helperMapping := make(map[[32]byte][32]byte)              // helper mapping: output to txid
 	for _, utxo := range utxos {
 		txidGroups[utxo.Txid] = append(txidGroups[utxo.Txid], utxo)
-		helperMapping[bip352.ConvertToFixedLength32(utxo.ScriptPubKey[2:])] = utxo.Txid
+		helperMapping[utils.ConvertToFixedLength32(utxo.ScriptPubKey[2:])] = utxo.Txid
 	}
 
 	// Map tweaks to relevant UTXOs to check
@@ -147,16 +152,17 @@ func ScanDataOptimized(
 	for tweak, relevantUTXOs := range tweaksOutputsToCheckMap {
 		var txOutputs [][32]byte
 		for _, utxo := range relevantUTXOs {
-			fixedLengthOutput := bip352.ConvertToFixedLength32(utxo.ScriptPubKey[2:])
+			fixedLengthOutput := utils.ConvertToFixedLength32(utxo.ScriptPubKey[2:])
 			txOutputs = append(txOutputs, fixedLengthOutput)
 		}
 
+		spendPubKey := s.SpendPubKey()
 		foundOutputsPerTweak, err := bip352.ReceiverScanTransaction(
 			s.ScanSecretKey(),
-			s.SpendPubKey(),
+			&spendPubKey,
 			labelsToCheck,
 			txOutputs,
-			tweak,
+			&tweak,
 			nil,
 		)
 		if err != nil {
