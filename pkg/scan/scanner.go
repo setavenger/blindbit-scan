@@ -2,6 +2,7 @@ package scan
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -87,6 +88,10 @@ func ScanDataOptimized(
 		outputPubKey, err := bip352.CreateOutputPubKey(*sharedSecret, s.SpendPubKey(), 0)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create output pubkey: %w", err)
+		}
+
+		if hex.EncodeToString(tweak[:]) == "0260ff5875fbb2d40d91a00d6e7a15f3bcfa66c2346150be416da97e21fcf22379" {
+			fmt.Printf("NewComputed PubKey: %x\n", outputPubKey)
 		}
 
 		tweakToScriptMap[outputPubKey] = TweakScriptMap{
