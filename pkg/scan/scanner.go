@@ -2,7 +2,6 @@ package scan
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -79,19 +78,24 @@ func ScanDataOptimized(
 
 	var scanSecretKey [32]byte
 	copy(scanSecretKey[:], scanSecretKeyBytes[:])
-	for _, tweak := range tweaks {
-		sharedSecret, err := bip352.CreateSharedSecret(&tweak, &scanSecretKey, nil)
+	for i := range tweaks {
+		var tweak [33]byte
+		copy(tweak[:], tweaks[i][:])
+
+		// fmt.Printf("%x - [x1]\n", tweak[:])
+		sharedSecretToCopy, err := bip352.CreateSharedSecret(&tweak, &scanSecretKey, nil)
+		var sharedSecret [33]byte
+		copy(sharedSecret[:], sharedSecretToCopy[:])
+		// fmt.Printf("%x - [x2]\n", sharedSecret[:])
 		if err != nil {
 			return nil, fmt.Errorf("failed to create shared secret: %w", err)
 		}
+		copy(tweak[:], tweaks[i][:])
 
-		outputPubKey, err := bip352.CreateOutputPubKey(*sharedSecret, s.SpendPubKey(), 0)
+		// fmt.Printf("%x - [1]\n", tweak)
+		outputPubKey, err := bip352.CreateOutputPubKey(sharedSecret, s.SpendPubKey(), 0)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create output pubkey: %w", err)
-		}
-
-		if hex.EncodeToString(tweak[:]) == "0260ff5875fbb2d40d91a00d6e7a15f3bcfa66c2346150be416da97e21fcf22379" {
-			fmt.Printf("NewComputed PubKey: %x\n", outputPubKey)
 		}
 
 		tweakToScriptMap[outputPubKey] = TweakScriptMap{
@@ -155,6 +159,9 @@ func ScanDataOptimized(
 			}
 		}
 	}
+
+	// todo: important
+	//  - only scan transactions with outputs where precomputed is in utxo set
 
 	// Scan Only Relevant Groups
 	for tweak, relevantUTXOs := range tweaksOutputsToCheckMap {
