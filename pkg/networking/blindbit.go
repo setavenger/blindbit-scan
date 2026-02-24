@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	"github.com/setavenger/blindbit-scan/pkg/logging"
-	"github.com/setavenger/blindbitd/src/utils"
+	"github.com/setavenger/blindbit-scan/pkg/utils"
 	"github.com/setavenger/go-bip352"
 )
 

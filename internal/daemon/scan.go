@@ -13,7 +13,6 @@ import (
 	"github.com/btcsuite/btcd/btcutil/gcs/builder"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/setavenger/blindbit-scan/internal/config"
-	"github.com/setavenger/blindbit-scan/pkg/database"
 	"github.com/setavenger/blindbit-scan/pkg/logging"
 	"github.com/setavenger/blindbit-scan/pkg/networking"
 	"github.com/setavenger/blindbit-scan/pkg/utils" // todo move blindbitd/src to a pkg for all blindbit programs
@@ -255,7 +254,7 @@ func (d *Daemon) SyncToTip(chainTip uint64) error {
 
 			if i%100 == 0 {
 				// do some writes anyways to save the last state of the scan height
-				err = database.WriteWalletToDB(config.PathDbWallet, d.Wallet)
+				err = d.DBWriter.WriteWalletToDB(config.PathDbWallet, d.Wallet)
 				if err != nil {
 					logging.L.Err(err).Uint64("height", i).Msg("")
 					return err
@@ -276,7 +275,7 @@ func (d *Daemon) SyncToTip(chainTip uint64) error {
 		}
 
 		// todo: database should be an interface to allow other forms of storing data.
-		err = database.WriteWalletToDB(config.PathDbWallet, d.Wallet)
+		err = d.DBWriter.WriteWalletToDB(config.PathDbWallet, d.Wallet)
 		if err != nil {
 			logging.L.Err(err).Msg("")
 			return err
@@ -493,7 +492,7 @@ func (d *Daemon) ForceSyncFrom(fromHeight uint64) error {
 			}
 			if i%100 == 0 {
 				// do some writes anyways to save the last state of the scan height
-				err = database.WriteWalletToDB(config.PathDbWallet, d.Wallet)
+				err = d.DBWriter.WriteWalletToDB(config.PathDbWallet, d.Wallet)
 				if err != nil {
 					logging.L.Err(err).Msg("")
 					return err
@@ -511,7 +510,7 @@ func (d *Daemon) ForceSyncFrom(fromHeight uint64) error {
 			// todo: make more robust, unnecessary trick
 			d.Wallet.LastScanHeight = i
 		}
-		err = database.WriteWalletToDB(config.PathDbWallet, d.Wallet)
+		err = d.DBWriter.WriteWalletToDB(config.PathDbWallet, d.Wallet)
 		if err != nil {
 			logging.L.Err(err).Msg("")
 			return err

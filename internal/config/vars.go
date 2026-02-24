@@ -6,11 +6,24 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 )
 
+type PrivateModeSetup struct {
+	ScanSecretKey [32]byte
+	SpendPubKey   [33]byte
+	BirthHeight   uint64
+	LabelCount    int
+	Password      string
+	BasicAuthUser string
+	BasicAuthPass string
+}
+
 func init() {
 	KeysReadyChan = make(chan struct{})
+	PrivateModeSetupChan = make(chan PrivateModeSetup)
 }
 
 var (
+	PrivateMode bool
+
 	// ExposeHttpHost if set gRPC will be exposed via http and not unix socket. This variable also defines the where it will be exposed.
 	ExposeHttpHost string
 
@@ -41,7 +54,9 @@ var (
 
 	SpendPubKey [33]byte
 
-	BirthHeight uint64
+	// A reasonable default birth height
+	// Silent Payments was not used a lot before that
+	BirthHeight uint64 = 890000
 
 	LabelCount int
 
@@ -52,4 +67,6 @@ var (
 
 	// keys are ready chan
 	KeysReadyChan chan struct{}
+
+	PrivateModeSetupChan chan PrivateModeSetup
 )

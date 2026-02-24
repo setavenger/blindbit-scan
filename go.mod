@@ -8,11 +8,11 @@ require (
 	github.com/btcsuite/btcd/btcutil v1.1.6
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
 	github.com/btcsuite/goleveldb v1.0.0
+	github.com/dustinkirkland/golang-petname v0.0.0-20240428194347-eebcea082ee0
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/nbd-wtf/go-nostr v0.50.0
 	github.com/rs/zerolog v1.33.0
-	github.com/setavenger/blindbitd v0.0.0-20240602183715-c4e971bba3e4
 	github.com/setavenger/go-bip352 v0.1.7
 	github.com/setavenger/go-electrum v1.1.1
 	github.com/spf13/viper v1.19.0
@@ -69,7 +69,7 @@ require (
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
 	golang.org/x/net v0.37.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/text v0.24.0 // indirect
 	google.golang.org/protobuf v1.36.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
